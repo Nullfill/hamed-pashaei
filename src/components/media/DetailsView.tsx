@@ -172,24 +172,45 @@ export function DetailsView({ details }: { details: MediaDetails }) {
             <div className="space-y-6">
               <h2 className="text-3xl font-black text-white">فصل‌ها و قسمت‌ها</h2>
               {episodeGroups.map(([season, episodes]) => (
-                <div key={season} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--surface)]">
-                  <div className="border-b border-white/[0.08] bg-white/[0.02] px-5 py-4">
-                    <h3 className="text-lg font-bold text-white">فصل {season}</h3>
-                    <p className="text-sm text-slate-400">{episodes.length} قسمت</p>
+                <div key={season} className="overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[var(--surface)] to-[var(--surface)]/80">
+                  <div className="border-b border-white/[0.08] bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold text-white">فصل {season}</h3>
+                        <p className="text-sm text-slate-400">{episodes.length} قسمت</p>
+                      </div>
+                      <div className="flex size-12 items-center justify-center rounded-full bg-amber-500/20 text-lg font-black text-amber-400">
+                        {season}
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {episodes.map((episode) => (
-                      <Link
-                        key={`${episode.season}-${episode.episode}`}
-                        href={getInternalWatchPath("series", details.id, hasDubbed ? "1" : "0", details.provider, episode.season, episode.episode)}
-                        className="group flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3.5 text-sm transition-smooth hover:scale-[1.02] hover:border-amber-500/40 hover:bg-white/[0.08]"
-                      >
-                        <span className="flex-1 truncate font-medium text-white">{episode.title}</span>
-                        <span className="shrink-0 text-xs text-slate-400 transition-colors group-hover:text-amber-400">
-                          {episode.links.length} کیفیت
-                        </span>
-                      </Link>
-                    ))}
+                  <div className="max-h-96 overflow-y-auto p-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {episodes.map((episode) => (
+                        <Link
+                          key={`${episode.season}-${episode.episode}`}
+                          href={getInternalWatchPath("series", details.id, hasDubbed ? "1" : "0", details.provider, episode.season, episode.episode)}
+                          className="group relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-4 transition-all duration-300 hover:scale-[1.02] hover:border-amber-500/60 hover:bg-gradient-to-br hover:from-amber-500/10 hover:to-orange-500/10 hover:shadow-lg hover:shadow-amber-500/20"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1 flex items-center gap-2">
+                                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-xs font-bold text-amber-400">
+                                  {episode.episode}
+                                </span>
+                                <span className="truncate font-bold text-white group-hover:text-amber-400">{episode.title}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-slate-400">
+                                <span className="rounded-md bg-white/[0.06] px-2 py-0.5">{episode.links.length} کیفیت</span>
+                              </div>
+                            </div>
+                            <div className="grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.06] transition-all group-hover:bg-amber-500 group-hover:text-black">
+                              <Play className="size-4 fill-current" aria-hidden />
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}

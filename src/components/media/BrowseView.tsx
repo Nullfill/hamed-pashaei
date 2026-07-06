@@ -195,70 +195,87 @@ export function BrowseView({
       </div>
 
       {/* Quick Filters */}
-      <div className="mb-6 rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-5">
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={sourceButtonClass(!filters.source)} onClick={() => setSource(undefined)}>
-            همه محتواها
-          </button>
-          <button type="button" className={sourceButtonClass(filters.source === "a")} onClick={() => setSource("a")}>
-            بدون سانسور
-          </button>
-          <button type="button" className={sourceButtonClass(filters.source === "b")} onClick={() => setSource("b")}>
-            سانسور شده
-          </button>
-          <button type="button" className={chipClass(filters.dubbed)} onClick={() => setToggle("dubbed")}>
-            دوبله فارسی
-          </button>
-          <button type="button" className={chipClass(filters.subtitle)} onClick={() => setToggle("subtitle")}>
-            زیرنویس فارسی
-          </button>
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button type="button" className={sourceButtonClass(!filters.source)} onClick={() => setSource(undefined)}>
+          🌐 همه محتواها
+        </button>
+        <button type="button" className={sourceButtonClass(filters.source === "a")} onClick={() => setSource("a")}>
+          🔓 بدون سانسور
+        </button>
+        <button type="button" className={sourceButtonClass(filters.source === "b")} onClick={() => setSource("b")}>
+          ✅ سانسور شده
+        </button>
+        <button type="button" className={chipClass(filters.dubbed)} onClick={() => setToggle("dubbed")}>
+          🎤 دوبله فارسی
+        </button>
+        <button type="button" className={chipClass(filters.subtitle)} onClick={() => setToggle("subtitle")}>
+          💬 زیرنویس فارسی
+        </button>
+        {(filters.cats.length > 0 || filters.country || filters.dubbed || filters.subtitle) && (
           <button
             type="button"
-            className={chipClass(!filters.cats.length && !filters.country && !filters.dubbed && !filters.subtitle)}
+            className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition-smooth hover:bg-red-500/20"
             onClick={() => applyFilters({ source: filters.source, cats: [], dubbed: false, subtitle: false, page: 1 })}
           >
-            پاک کردن فیلترها
+            ✖ پاک کردن فیلترها
           </button>
-        </div>
+        )}
       </div>
 
-      {/* Advanced Filters */}
-      <div className="mb-10 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-        <div>
-          <h2 className="mb-4 text-lg font-bold text-white">ژانرها</h2>
-          <div className="max-h-48 overflow-y-auto rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-4">
-            <div className="flex flex-wrap gap-2">
-              {visibleCategories.map((category) => (
-                <button
-                  key={category.key}
-                  type="button"
-                  className={chipClass(filters.cats.includes(category.key))}
-                  onClick={() => toggleCategory(category.key)}
-                >
-                  {category.label}
-                </button>
-              ))}
+      {/* Advanced Filters - Collapsible */}
+      <details className="group mb-6">
+        <summary className="flex cursor-pointer items-center justify-between rounded-2xl border border-white/[0.08] bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-6 py-4 transition-all hover:border-amber-500/30">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-full bg-amber-500/20 text-amber-400">
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+            </div>
+            <div>
+              <h2 className="font-bold text-white">فیلترهای پیشرفته</h2>
+              <p className="text-xs text-slate-400">ژانر، کشور، و موارد دیگر</p>
+            </div>
+          </div>
+          <span className="text-slate-400 transition-transform group-open:rotate-180">
+            <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </span>
+        </summary>
+        
+        <div className="mt-4 grid gap-6 rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-6 lg:grid-cols-[2fr_1fr]">
+          <div>
+            <h3 className="mb-3 text-sm font-bold text-slate-400">ژانرها</h3>
+            <div className="max-h-60 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div className="flex flex-wrap gap-2">
+                {visibleCategories.map((category) => (
+                  <button
+                    key={category.key}
+                    type="button"
+                    className={chipClass(filters.cats.includes(category.key))}
+                    onClick={() => toggleCategory(category.key)}
+                  >
+                    {category.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 className="mb-3 text-sm font-bold text-slate-400">کشورها</h3>
+            <div className="max-h-60 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+              <div className="flex flex-wrap gap-2">
+                {COUNTRIES.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={chipClass(filters.country === item.id)}
+                    onClick={() => setCountry(item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-        <div>
-          <h2 className="mb-4 text-lg font-bold text-white">کشورها</h2>
-          <div className="rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-4">
-            <div className="flex flex-wrap gap-2">
-              {COUNTRIES.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={chipClass(filters.country === item.id)}
-                  onClick={() => setCountry(item.id)}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      </details>
 
       {error ? (
         <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-200">
