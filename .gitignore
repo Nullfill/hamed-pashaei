@@ -1,0 +1,12 @@
+.next/
+node_modules/
+out/
+dist/
+.env
+.env*.local
+*.log
+vercel.json
+gapfilm-js/
+gapfilm-home.html
+
+.vercel
