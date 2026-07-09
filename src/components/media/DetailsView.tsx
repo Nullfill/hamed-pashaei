@@ -1,4 +1,5 @@
 import { Award, Calendar, Clock, Globe, Languages, Star, Users } from "lucide-react";
+import sanitizeHtml from "sanitize-html";
 import type { MediaDetails } from "@/lib/providers/types";
 import { MoviePlaybackButton, SeriesPlaybackPanel } from "@/components/media/DetailsPlayback";
 import { MediaCard } from "@/components/media/MediaCard";
@@ -24,6 +25,19 @@ function TermList({ title, items, icon: Icon }: { title: string; items?: Array<{
 }
 
 export function DetailsView({ details }: { details: MediaDetails }) {
+  const sanitizedBodyHtml = details.bodyHtml
+    ? sanitizeHtml(details.bodyHtml, {
+        allowedTags: [...sanitizeHtml.defaults.allowedTags, "img"],
+        allowedAttributes: {
+          ...sanitizeHtml.defaults.allowedAttributes,
+          a: ["href", "name", "target", "rel"],
+          img: ["src", "alt", "title", "width", "height", "loading"],
+          "*": ["class"],
+        },
+        allowedSchemes: ["http", "https", "mailto"],
+      })
+    : undefined;
+
   return (
     <article>
       <section className="relative border-b border-white/[0.08]">
@@ -112,10 +126,10 @@ export function DetailsView({ details }: { details: MediaDetails }) {
             </div>
           ) : null}
 
-          {details.bodyHtml ? (
+          {sanitizedBodyHtml ? (
             <div className="rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-6">
               <h2 className="mb-5 text-2xl font-black text-white">توضیحات کامل</h2>
-              <div className="content-html" dangerouslySetInnerHTML={{ __html: details.bodyHtml }} />
+              <div className="content-html" dangerouslySetInnerHTML={{ __html: sanitizedBodyHtml }} />
             </div>
           ) : null}
 

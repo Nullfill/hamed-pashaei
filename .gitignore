@@ -10,3 +10,4 @@ gapfilm-js/
 gapfilm-home.html
 
 .vercel
+data/*.json

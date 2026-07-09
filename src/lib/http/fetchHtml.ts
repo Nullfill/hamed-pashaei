@@ -17,7 +17,7 @@ export async function fetchHtml({ url, headers, timeoutMs = 15000, next }: Fetch
   const proxyUrl = getProxyUrl();
 
   try {
-    const fetchOptions: RequestInit & { dispatcher?: Dispatcher; agent?: any; next?: NextFetchRequestConfig } = {
+    const fetchOptions: RequestInit & { dispatcher?: Dispatcher; agent?: HttpsProxyAgent<string>; next?: NextFetchRequestConfig } = {
       headers,
       signal: controller.signal,
       cache: "no-store",

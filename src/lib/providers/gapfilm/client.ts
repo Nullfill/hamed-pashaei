@@ -30,7 +30,7 @@ export class GapfilmClient {
       }
     }
 
-    const fetchOptions: RequestInit & { dispatcher?: Dispatcher; agent?: any } = {
+    const fetchOptions: RequestInit & { dispatcher?: Dispatcher; agent?: HttpsProxyAgent<string> } = {
       method: options.method ?? (options.body ? "POST" : "GET"),
       headers: {
         Accept: "*/*",

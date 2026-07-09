@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getProvider } from "@/lib/providers/registry";
 import { mediaTypeSchema } from "@/lib/providers/types";
 import { toPublicError } from "@/lib/utils/errors";
@@ -7,6 +8,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "برای پخش محتوا وارد حساب شوید.", sources: [] }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const type = mediaTypeSchema.parse(searchParams.get("type"));
     const id = searchParams.get("id")?.trim();

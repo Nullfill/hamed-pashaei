@@ -5,8 +5,6 @@ const publicProviderCodes: Record<string, string> = {
   gapfilm: "b",
 };
 
-const providerAssetHosts = ["gapfilm.ir", "shabforoosh.ir", "majnoonbazar.ir", "seo2024.ir"];
-
 function publicProviderCode(provider?: string): string | undefined {
   if (!provider) {
     return undefined;
@@ -25,11 +23,6 @@ export function toAbsoluteUrl(path: string | undefined, baseUrl: string): string
   } catch {
     return undefined;
   }
-}
-
-function isProviderAssetHost(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-  return providerAssetHosts.some((host) => normalized === host || normalized.endsWith(`.${host}`));
 }
 
 export function toProviderAssetProxyUrl(url: string | undefined): string | undefined {

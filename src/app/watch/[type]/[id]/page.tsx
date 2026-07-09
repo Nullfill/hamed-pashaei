@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/session";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { mediaTypeSchema } from "@/lib/providers/types";
 import { getInternalDetailsPath } from "@/lib/utils/url";
@@ -16,6 +18,19 @@ export default async function WatchPage({
   const { dubbed = "0", src, provider, season, episode } = await searchParams;
   const source = src || provider;
   const parsedType = mediaTypeSchema.safeParse(rawType);
+  const query = new URLSearchParams();
+
+  if (dubbed) query.set("dubbed", dubbed);
+  if (source) query.set("src", source);
+  if (season) query.set("season", season);
+  if (episode) query.set("episode", episode);
+
+  const nextPath = `/watch/${encodeURIComponent(rawType)}/${encodeURIComponent(id)}${query.toString() ? `?${query.toString()}` : ""}`;
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect(`/login?next=${encodeURIComponent(nextPath)}`);
+  }
 
   if (!parsedType.success) {
     return (

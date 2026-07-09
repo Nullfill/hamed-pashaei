@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   const proxyUrl = getProxyUrl();
 
   try {
-    const fetchOptions: RequestInit & { dispatcher?: Dispatcher; agent?: any } = {
+    const fetchOptions: RequestInit & { dispatcher?: Dispatcher; agent?: HttpsProxyAgent<string> } = {
       headers: {
         Accept: "image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8",
         "Accept-Language": "fa-IR,fa;q=0.9,en-US;q=0.8,en;q=0.7",

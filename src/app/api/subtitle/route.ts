@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,11 @@ function isAllowedSubtitleHost(hostname: string) {
 }
 
 export async function GET(request: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const rawUrl = searchParams.get("url");
 
