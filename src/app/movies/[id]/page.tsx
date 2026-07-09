@@ -1,4 +1,5 @@
 import { DetailsView } from "@/components/media/DetailsView";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getProvider } from "@/lib/providers/registry";
 import { toPublicError } from "@/lib/utils/errors";
 
@@ -15,8 +16,8 @@ export default async function MovieDetailsPage({
   const { src, provider } = await searchParams;
 
   try {
-    const details = await getProvider(src || provider).getDetails({ id, type: "movie" });
-    return <DetailsView details={details} />;
+    const [details, currentUser] = await Promise.all([getProvider(src || provider).getDetails({ id, type: "movie" }), getCurrentUser()]);
+    return <DetailsView details={details} currentUser={currentUser} />;
   } catch (error) {
     const publicError = toPublicError(error);
 

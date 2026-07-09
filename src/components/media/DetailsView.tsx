@@ -1,5 +1,7 @@
 import { Award, Calendar, Clock, Globe, Languages, Star, Users } from "lucide-react";
+import Link from "next/link";
 import sanitizeHtml from "sanitize-html";
+import type { PublicUser } from "@/lib/auth/types";
 import type { MediaDetails } from "@/lib/providers/types";
 import { FavoriteButton } from "@/components/media/FavoriteButton";
 import { MoviePlaybackButton, SeriesPlaybackPanel } from "@/components/media/DetailsPlayback";
@@ -25,7 +27,28 @@ function TermList({ title, items, icon: Icon }: { title: string; items?: Array<{
   );
 }
 
-export function DetailsView({ details }: { details: MediaDetails }) {
+function authPath(path: "login" | "register", details: MediaDetails) {
+  const params = new URLSearchParams();
+  const source = details.provider === "gapfilm" ? "b" : details.provider === "shabforoosh" ? "a" : details.provider;
+  if (source) params.set("src", source);
+  const next = `/${details.type === "movie" ? "movies" : "series"}/${encodeURIComponent(details.id)}${params.toString() ? `?${params.toString()}` : ""}`;
+  return `/${path}?next=${encodeURIComponent(next)}`;
+}
+
+function GuestPlaybackActions({ details }: { details: MediaDetails }) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      <Link href={authPath("login", details)} className="inline-flex w-fit items-center gap-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-4 text-lg font-bold text-black shadow-lg shadow-amber-500/30 transition-smooth hover:scale-105">
+        ورود و پخش
+      </Link>
+      <Link href={authPath("register", details)} className="inline-flex w-fit items-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-5 py-3 text-sm font-black text-slate-200 transition-smooth hover:bg-white/[0.08]">
+        ثبت نام
+      </Link>
+    </div>
+  );
+}
+
+export function DetailsView({ details, currentUser }: { details: MediaDetails; currentUser?: PublicUser }) {
   const sanitizedBodyHtml = details.bodyHtml
     ? sanitizeHtml(details.bodyHtml, {
         allowedTags: [...sanitizeHtml.defaults.allowedTags, "img"],
@@ -108,8 +131,14 @@ export function DetailsView({ details }: { details: MediaDetails }) {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                {details.type === "movie" ? <MoviePlaybackButton details={details} /> : null}
-                <FavoriteButton details={details} />
+                {currentUser ? (
+                  <>
+                    {details.type === "movie" ? <MoviePlaybackButton details={details} /> : null}
+                    <FavoriteButton details={details} />
+                  </>
+                ) : (
+                  <GuestPlaybackActions details={details} />
+                )}
               </div>
             </div>
           </div>
@@ -118,7 +147,7 @@ export function DetailsView({ details }: { details: MediaDetails }) {
 
       <section className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:px-8">
         <div className="min-w-0 space-y-10">
-          {details.type === "series" ? <SeriesPlaybackPanel details={details} /> : null}
+          {details.type === "series" ? currentUser ? <SeriesPlaybackPanel details={details} /> : <GuestPlaybackActions details={details} /> : null}
 
           {details.awards ? (
             <div className="rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-6">
