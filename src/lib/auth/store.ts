@@ -13,6 +13,7 @@ import {
   findDbUserById,
   listDbUsers,
   updateDbUserAccess,
+  updateDbUserPassword,
 } from "@/lib/auth/dbStore";
 import type { AuthStoreData, PublicUser, StoredSession, StoredUser, UserRole, UserStatus } from "@/lib/auth/types";
 
@@ -170,6 +171,26 @@ export async function updateUserAccess(input: { userId: string; role: UserRole; 
       store.sessions = store.sessions.filter((session) => session.userId !== input.userId);
     }
 
+    await writeStore(store);
+  });
+}
+
+export async function updateUserPassword(input: { userId: string; passwordHash: string }): Promise<void> {
+  if (useDatabaseStore) {
+    await updateDbUserPassword(input);
+    return;
+  }
+
+  return withWrite(async () => {
+    const store = await readStore();
+    const user = store.users.find((item) => item.id === input.userId);
+    if (!user) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
+    user.passwordHash = input.passwordHash;
+    user.updatedAt = new Date().toISOString();
+    store.sessions = store.sessions.filter((session) => session.userId !== input.userId);
     await writeStore(store);
   });
 }

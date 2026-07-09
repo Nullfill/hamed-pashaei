@@ -153,6 +153,20 @@ export async function updateDbUserAccess(input: { userId: string; role: UserRole
   }
 }
 
+export async function updateDbUserPassword(input: { userId: string; passwordHash: string }): Promise<void> {
+  const db = requireSql();
+  const rows = await db`
+    UPDATE users
+    SET password_hash = ${input.passwordHash}, updated_at = now()
+    WHERE id = ${input.userId}
+    RETURNING id
+  `;
+
+  if (!rows.length) {
+    throw new Error("USER_NOT_FOUND");
+  }
+}
+
 export async function createDbSession(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<StoredSession> {
   const db = requireSql();
   await db`DELETE FROM sessions WHERE expires_at <= now()`;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Film, Search, Menu, X, User, Shield } from "lucide-react";
+import { Film, Menu, Search, Shield, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { PublicUser } from "@/lib/auth/types";
 
@@ -36,7 +36,6 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 glass border-b border-white/[0.08]">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        {/* Logo */}
         <Link href="/" className="group flex items-center gap-3 transition-smooth hover:scale-105">
           <div className="relative grid size-11 place-items-center rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-lg shadow-amber-500/25 transition-smooth group-hover:shadow-amber-500/40">
             <Film className="size-6" aria-hidden />
@@ -47,7 +46,6 @@ export function Header() {
           </div>
         </Link>
 
-        {/* Desktop Navigation */}
         <nav className="hidden items-center gap-1 text-sm font-medium lg:flex">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href} className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
@@ -56,9 +54,7 @@ export function Header() {
           ))}
         </nav>
 
-        {/* Search & Mobile Menu */}
         <div className="flex items-center gap-3">
-          {/* Search Button/Form */}
           <Link
             href="/search"
             className="grid size-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-smooth hover:border-amber-500/50 hover:bg-white/10 hover:text-amber-400 lg:hidden"
@@ -66,7 +62,6 @@ export function Header() {
             <Search className="size-5" aria-hidden />
           </Link>
 
-          {/* Desktop Search */}
           <form action="/search" className="relative hidden lg:block">
             <Search className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -95,8 +90,12 @@ export function Header() {
                     <p className="truncate text-sm font-black text-white">{user.name || "حساب کاربری"}</p>
                     <p className="truncate text-xs text-slate-500">{user.email}</p>
                   </div>
+                  <Link href="/profile" onClick={() => setAccountOpen(false)} className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08] hover:text-white">
+                    <User className="size-4 text-amber-300" aria-hidden />
+                    پروفایل
+                  </Link>
                   {user.role === "ADMIN" ? (
-                    <Link href="/admin" onClick={() => setAccountOpen(false)} className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08] hover:text-white">
+                    <Link href="/admin" onClick={() => setAccountOpen(false)} className="mt-1 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08] hover:text-white">
                       <Shield className="size-4 text-amber-300" aria-hidden />
                       پنل مدیریت
                     </Link>
@@ -115,7 +114,6 @@ export function Header() {
             </Link>
           )}
 
-          {/* Mobile Menu Button */}
           <button
             type="button"
             onClick={() => setMenuOpen((value) => !value)}
@@ -138,6 +136,9 @@ export function Header() {
           ))}
           {user ? (
             <>
+              <Link href="/profile" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
+                پروفایل
+              </Link>
               {user.role === "ADMIN" ? (
                 <Link href="/admin" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
                   پنل مدیریت
