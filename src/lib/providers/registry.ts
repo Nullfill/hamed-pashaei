@@ -1,4 +1,4 @@
-import type { BrowseInput, BrowseResult, HomeSection, MediaProvider, ProviderCategory, SearchResult } from "@/lib/providers/types";
+import type { BrowseInput, BrowseResult, HomeSection, MediaProvider, ProviderCategory, ProviderCountry, SearchResult } from "@/lib/providers/types";
 import { GapfilmProvider } from "@/lib/providers/gapfilm";
 import { ShabforooshProvider } from "@/lib/providers/shabforoosh";
 
@@ -56,19 +56,43 @@ export async function searchAllProviders(query: string): Promise<SearchResult[]>
 
 export async function getAllHomeSections(): Promise<HomeSection[]> {
   const sections = await Promise.allSettled(getAllProviders().map((provider) => provider.getHomeSections()));
-  return sections
-    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
-    .map((section) => ({
-      ...section,
-      href:
-        section.provider && section.sourceId
-          ? `/sections/${toPublicProviderCode(section.provider)}/${encodeURIComponent(section.sourceId)}${section.sourceType ? `?t=${encodeURIComponent(section.sourceType)}` : ""}`
-          : section.href,
-    }));
+  return withSectionHrefs(sections.flatMap((result) => (result.status === "fulfilled" ? result.value : [])));
+}
+
+export async function getCatalogSections(type: BrowseInput["type"]): Promise<HomeSection[]> {
+  const sections = await Promise.allSettled(
+    getAllProviders().map((provider) => (provider.getCatalogSections ? provider.getCatalogSections(type) : provider.getHomeSections())),
+  );
+
+  return withSectionHrefs(
+    sections
+      .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item.type === type),
+      }))
+      .filter((section) => section.items.length),
+  );
+}
+
+function withSectionHrefs(sections: HomeSection[]): HomeSection[] {
+  return sections.map((section) => ({
+    ...section,
+    href:
+      section.provider && section.sourceId
+        ? `/sections/${toPublicProviderCode(section.provider)}/${encodeURIComponent(section.sourceId)}${section.sourceType ? `?t=${encodeURIComponent(section.sourceType)}` : ""}`
+        : section.href,
+  }));
 }
 
 export async function browseAllProviders(input: BrowseInput): Promise<BrowseResult> {
-  const results = await Promise.allSettled(getAllProviders().map((provider) => provider.browse(input)));
+  const countries = input.country ? await getAllCountries() : [];
+  const results = await Promise.allSettled(
+    getAllProviders()
+      .map((provider) => ({ provider, country: resolveCountryForProvider(countries, provider.id, input.country) }))
+      .filter(({ country }) => !input.country || country)
+      .map(({ provider, country }) => provider.browse({ ...input, country })),
+  );
   const fulfilled = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
   const items = dedupeItems(fulfilled.flatMap((result) => result.items));
 
@@ -78,6 +102,18 @@ export async function browseAllProviders(input: BrowseInput): Promise<BrowseResu
     totalPages: Math.max(1, ...fulfilled.map((result) => result.totalPages)),
     perPage: items.length,
   };
+}
+
+export async function browseProvider(providerId: string, input: BrowseInput): Promise<BrowseResult> {
+  const provider = getProvider(providerId);
+  const countries = input.country ? await getAllCountries() : [];
+  const country = resolveCountryForProvider(countries, provider.id, input.country);
+
+  if (input.country && !country) {
+    return { items: [], page: input.page || 1, totalPages: 1, perPage: 0 };
+  }
+
+  return provider.browse({ ...input, country });
 }
 
 function normalizeCategoryLabel(label: string): string {
@@ -91,6 +127,10 @@ function normalizeCategoryLabel(label: string): string {
 
 function categoryKey(label: string): string {
   return encodeURIComponent(normalizeCategoryLabel(label).toLowerCase().replace(/\s+/g, "-"));
+}
+
+function countryKey(label: string): string {
+  return categoryKey(label);
 }
 
 function dedupeItems(items: BrowseResult["items"]): BrowseResult["items"] {
@@ -159,6 +199,59 @@ export async function getAllCategories(): Promise<ProviderCategory[]> {
   return [...merged.values()].sort((a, b) => a.label.localeCompare(b.label, "fa"));
 }
 
+export async function getAllCountries(): Promise<ProviderCountry[]> {
+  const results = await Promise.allSettled(
+    getAllProviders().map(async (provider) => {
+      if (!provider.getCountries) {
+        return [];
+      }
+
+      return provider.getCountries();
+    }),
+  );
+  const raw = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+  const merged = new Map<string, ProviderCountry>();
+
+  for (const country of raw) {
+    const label = normalizeCategoryLabel(country.label);
+    if (!label) {
+      continue;
+    }
+
+    const key = countryKey(label);
+    const current = merged.get(key) ?? { provider: "mixed", key, label, value: label, sources: {} };
+    current.englishLabel ||= country.englishLabel;
+    current.sources ||= {};
+    current.sources[country.provider] = {
+      value: country.value,
+      englishLabel: country.englishLabel,
+    };
+
+    merged.set(key, current);
+  }
+
+  return [...merged.values()].sort((a, b) => a.label.localeCompare(b.label, "fa"));
+}
+
+function matchesCountry(country: ProviderCountry, key: string): boolean {
+  const decoded = decodeURIComponent(key);
+  return (
+    country.key === key ||
+    country.key === encodeURIComponent(decoded) ||
+    country.value === key ||
+    normalizeCategoryLabel(country.label) === normalizeCategoryLabel(decoded)
+  );
+}
+
+function resolveCountryForProvider(countries: ProviderCountry[], providerId: string, key?: string): string | undefined {
+  if (!key) {
+    return undefined;
+  }
+
+  const country = countries.find((item) => matchesCountry(item, key));
+  return country?.sources?.[providerId]?.value;
+}
+
 export async function browseByCategoryKeys(
   input: BrowseInput & {
     categoryKeys?: string[] | string;
@@ -169,7 +262,7 @@ export async function browseByCategoryKeys(
   const source = fromPublicProviderCode(input.source) ?? undefined;
 
   if (!categoryKeys.length) {
-    return source ? getProvider(source).browse(input) : browseAllProviders(input);
+    return source ? browseProvider(source, input) : browseAllProviders(input);
   }
 
   const categories = await getAllCategories();
@@ -182,8 +275,14 @@ export async function browseByCategoryKeys(
   const providerIds = source ? [source] : (Object.keys(providers) as ProviderId[]);
   const tasks: Array<Promise<BrowseResult>> = [];
   const callKeys = new Set<string>();
+  const countries = input.country ? await getAllCountries() : [];
 
   for (const providerId of providerIds) {
+    const country = resolveCountryForProvider(countries, providerId, input.country);
+    if (input.country && !country) {
+      continue;
+    }
+
     for (const category of selected) {
       const sourceIds = category.sources?.[providerId];
       const genres = input.type === "movie" ? sourceIds?.movieId : sourceIds?.seriesId;
@@ -201,6 +300,7 @@ export async function browseByCategoryKeys(
         getProvider(providerId).browse({
           ...input,
           genres,
+          country,
         }),
       );
     }
@@ -223,6 +323,17 @@ export async function browseByCategoryKeys(
 }
 
 export async function getKidsSections(): Promise<HomeSection[]> {
+  const gapfilmKids = await providers.gapfilm.getKidsSections?.().catch(() => []);
+  if (gapfilmKids?.length) {
+    return gapfilmKids.map((section) => ({
+      ...section,
+      href:
+        section.provider && section.sourceId
+          ? `/sections/${toPublicProviderCode(section.provider)}/${encodeURIComponent(section.sourceId)}${section.sourceType ? `?t=${encodeURIComponent(section.sourceType)}` : ""}`
+          : section.href,
+    }));
+  }
+
   const categories = await getAllCategories();
   const categoryKeys = categories.filter((category) => /انیمیشن|کودک|خانوادگی/.test(category.label)).map((category) => category.key);
 

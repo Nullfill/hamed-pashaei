@@ -29,6 +29,8 @@ const ROOT_CATEGORY_BY_TYPE = {
   series: "7",
 } as const;
 
+const KIDS_SECTION_TEMPLATE_IDS = "2,3,5,10,11,16,37,35,36,34,1,4,6,7,8,9,12,13,14,38,15,39";
+
 const SHABFOROOSH_TO_GAPFILM_CATEGORY: Record<string, { movie?: string; series?: string }> = {
   "29": { movie: "9" },
   "108": { series: "18" },
@@ -74,30 +76,85 @@ export class GapfilmProvider implements MediaProvider {
   }
 
   async getHomeSections(): Promise<HomeSection[]> {
-    const payload = await this.client.requestJson<Parameters<typeof parseHomeSections>[0]>("/api/v3.3/GetFirstPageByPlatform", {
-      params: {
-        PlatformId: 1,
-        PlatformType: 1,
-        PageType: 1,
-        PageSize: 20,
-        PageIndex: 0,
-        ContentRows: 20,
-        ParentType: 2,
-      },
-    });
+    const payload = await this.getFirstPageSectionsPayload(1, 20, 20);
 
     return parseHomeSections(payload);
+  }
+
+  async getCatalogSections(type: "movie" | "series"): Promise<HomeSection[]> {
+    const platformIds = type === "movie" ? [2, 3, 4] : [4, 1, 2];
+    const results = await Promise.allSettled(platformIds.map((platformId) => this.getFirstPageSectionsPayload(platformId, 8, 8)));
+    const sections = results.flatMap((result) => (result.status === "fulfilled" ? parseHomeSections(result.value) : []));
+
+    return sections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item.type === type),
+      }))
+      .filter((section) => section.items.length);
+  }
+
+  private async getFirstPageSectionsPayload(platformId: number, pageSize: number, contentRows: number) {
+    return this.client.requestJson<Parameters<typeof parseHomeSections>[0]>("/api/v3.3/GetFirstPageByPlatform", {
+      params: {
+        PlatformId: platformId,
+        PlatformType: 1,
+        PageType: 1,
+        PageSize: pageSize,
+        PageIndex: 0,
+        ContentRows: contentRows,
+        ParentType: 2,
+        ClientTags: "Web",
+      },
+    });
+  }
+
+  async getKidsSections(): Promise<HomeSection[]> {
+    const firstPage = await this.getKidsSectionsPage(0);
+    const totalPages = Math.max(firstPage.Result?.TotalPage ?? 1, 1);
+    const otherPages =
+      totalPages > 1
+        ? await Promise.all(Array.from({ length: totalPages - 1 }, (_, index) => this.getKidsSectionsPage(index + 1)))
+        : [];
+
+    return [firstPage, ...otherPages].flatMap((payload) => parseHomeSections(payload));
+  }
+
+  private async getKidsSectionsPage(pageIndex: number) {
+    return this.client.requestJson<
+      Parameters<typeof parseHomeSections>[0] & {
+        Result?: { TotalPage?: number };
+      }
+    >("/api/v3.3/GetFirstPageByPlatform", {
+      params: {
+        PlatformId: 5,
+        PlatformType: 1,
+        PageType: 1,
+        PageSize: 8,
+        PageIndex: pageIndex,
+        ContentRows: 11,
+        ParentType: 2,
+        SectionTemplateIds: KIDS_SECTION_TEMPLATE_IDS,
+        AgeRangeId: 2,
+        ClientTags: "Web",
+      },
+      headers: {
+        SourceEnvironment: "Website",
+        Referer: "https://www.gapfilm.ir/kids/",
+      },
+    });
   }
 
   async browse(input: BrowseInput): Promise<BrowseResult> {
     const page = Math.max((input.page || 1) - 1, 0);
     const categoryId = this.resolveCategory(input);
 
-    if (input.dubbed || input.subtitle) {
+    if (input.dubbed || input.subtitle || input.country) {
       const payload = await this.client.requestJson<Parameters<typeof parseAdvancedBrowse>[0]>("/api/v1.1/search/advance-search", {
         params: {
           ZoneId: input.type === "series" ? 3 : 4,
           CategoryId: categoryId === ROOT_CATEGORY_BY_TYPE[input.type] ? undefined : categoryId,
+          Country: input.country,
           isDubbed: input.dubbed || undefined,
           isSubtitled: input.subtitle || undefined,
           PageIndex: page,
@@ -202,6 +259,31 @@ export class GapfilmProvider implements MediaProvider {
       }));
   }
 
+  async getCountries() {
+    const payload = await this.client.requestJson<{
+      Code?: number;
+      Message?: string;
+      Data?: Array<{ EnglishName?: string; PersianName?: string }>;
+    }>("/api/v3.2/country");
+
+    if (payload.Code !== 1) {
+      throw new Error(payload.Message || "Gapfilm countries are unavailable.");
+    }
+
+    return (payload.Data ?? [])
+      .map((country) => {
+        const label = country.PersianName?.trim() ?? "";
+        return {
+          provider: this.id,
+          key: encodeURIComponent(label.toLowerCase().replace(/\s+/g, "-")),
+          label,
+          value: label,
+          englishLabel: country.EnglishName?.trim() || undefined,
+        };
+      })
+      .filter((country) => country.label);
+  }
+
   async getSection(input: { id: string; sourceType?: string; page?: number }) {
     const page = Math.max((input.page || 1) - 1, 0);
     const payload = await this.client.requestJson<{
@@ -217,8 +299,8 @@ export class GapfilmProvider implements MediaProvider {
         EntityId: input.id,
         EntityType: input.sourceType || 1,
         PlatformType: 1,
-        AgeRangeId: undefined,
-        PageSize: 20,
+        AgeRangeId: 5,
+        PageSize: 25,
         PageIndex: page,
       },
     });

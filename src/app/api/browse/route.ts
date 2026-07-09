@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { browseAllProviders, browseByCategoryKeys, getProvider } from "@/lib/providers/registry";
+import { browseAllProviders, browseByCategoryKeys, browseProvider } from "@/lib/providers/registry";
 import { mediaTypeSchema } from "@/lib/providers/types";
 import { toPublicError } from "@/lib/utils/errors";
 
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const result = categoryKeys
       ? await browseByCategoryKeys({ ...input, categoryKeys, source })
       : source
-        ? await getProvider(source).browse(input)
+        ? await browseProvider(source, input)
         : await browseAllProviders(input);
 
     return NextResponse.json(result);

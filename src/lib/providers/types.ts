@@ -137,6 +137,15 @@ export interface ProviderCategory {
   sources?: Record<string, { movieId?: string; seriesId?: string }>;
 }
 
+export interface ProviderCountry {
+  provider: string;
+  key: string;
+  label: string;
+  value: string;
+  englishLabel?: string;
+  sources?: Record<string, { value?: string; englishLabel?: string }>;
+}
+
 export interface PlaybackSource {
   quality?: string;
   src: string;
@@ -161,6 +170,9 @@ export interface MediaProvider {
   getDetails(input: MediaPath): Promise<MediaDetails>;
   getPlayback(input: PlaybackInput): Promise<PlaybackData>;
   getCategories?(): Promise<ProviderCategory[]>;
+  getCountries?(): Promise<ProviderCountry[]>;
+  getKidsSections?(): Promise<HomeSection[]>;
+  getCatalogSections?(type: MediaType): Promise<HomeSection[]>;
   getSection?(input: { id: string; sourceType?: string; page?: number }): Promise<HomeSection>;
 }
 

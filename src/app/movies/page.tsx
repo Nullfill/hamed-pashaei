@@ -1,5 +1,6 @@
 import { BrowseView } from "@/components/media/BrowseView";
-import { browseAllProviders, browseByCategoryKeys, getAllCategories, getProvider } from "@/lib/providers/registry";
+import { CatalogShowcase } from "@/components/media/CatalogShowcase";
+import { browseAllProviders, browseByCategoryKeys, browseProvider, getAllCategories, getAllCountries, getCatalogSections } from "@/lib/providers/registry";
 import { toPublicError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
@@ -12,40 +13,48 @@ export default async function MoviesPage({
   const params = await searchParams;
   const page = Number(params.page || 1);
   const source = params.src || params.provider;
+  const currentPage = Number.isFinite(page) && page > 0 ? page : 1;
+  const hasFocusedArchive = Boolean(source || params.cats || params.genres || params.country || params.dubbed || params.subtitle || currentPage > 1);
 
   try {
     const input = {
       type: "movie",
-      page: Number.isFinite(page) && page > 0 ? page : 1,
+      page: currentPage,
       genres: params.genres,
       country: params.country,
       dubbed: params.dubbed === "1",
       subtitle: params.subtitle === "1",
     } as const;
-    const [result, categories] = await Promise.all([
+    const [result, categories, countries, showcaseSections] = await Promise.all([
       params.cats
         ? browseByCategoryKeys({ ...input, categoryKeys: params.cats, source })
         : source
-          ? getProvider(source).browse(input)
+          ? browseProvider(source, input)
           : browseAllProviders(input),
       getAllCategories(),
+      getAllCountries(),
+      hasFocusedArchive ? Promise.resolve([]) : getCatalogSections("movie"),
     ]);
 
     return (
-      <BrowseView
-        title="فیلم‌ها"
-        description="آرشیو ترکیبی فیلم‌ها با فیلتر زنده ژانر، کشور، دوبله و زیرنویس."
-        result={result}
-        type="movie"
-        page={input.page}
-        selectedCategories={params.cats}
-        genres={params.genres}
-        country={params.country}
-        dubbed={params.dubbed === "1"}
-        subtitle={params.subtitle === "1"}
-        provider={source}
-        categories={categories}
-      />
+      <>
+        {!hasFocusedArchive ? <CatalogShowcase type="movie" sections={showcaseSections} /> : null}
+        <BrowseView
+          title={hasFocusedArchive ? "فیلم‌ها" : "آرشیو فیلم‌ها"}
+          description="آرشیو ترکیبی فیلم‌ها با فیلتر زنده ژانر، کشور، دوبله و زیرنویس."
+          result={result}
+          type="movie"
+          page={input.page}
+          selectedCategories={params.cats}
+          genres={params.genres}
+          country={params.country}
+          dubbed={params.dubbed === "1"}
+          subtitle={params.subtitle === "1"}
+          provider={source}
+          categories={categories}
+          countries={countries}
+        />
+      </>
     );
   } catch (error) {
     const publicError = toPublicError(error);

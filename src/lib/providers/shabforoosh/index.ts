@@ -8,6 +8,7 @@ import type {
   PlaybackData,
   PlaybackInput,
   ProviderCategory,
+  ProviderCountry,
   SearchResult,
 } from "@/lib/providers/types";
 import { getDetailsPath } from "@/lib/utils/url";
@@ -33,7 +34,11 @@ function decodeSectionPath(id: string): string {
 }
 
 function normalizeCategoryLabel(label: string): string {
-  return label.replace(/\s+/g, " ").trim();
+  return label.replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/\s+/g, " ").trim();
+}
+
+function normalizeTaxonomyLabel(label: string): string {
+  return normalizeCategoryLabel(label).replace(/-/g, " ").toLowerCase();
 }
 
 const GENRE_IDS_BY_NAME: Record<string, { movieId: string; seriesId?: string }> = {
@@ -50,14 +55,22 @@ const GENRE_IDS_BY_NAME: Record<string, { movieId: string; seriesId?: string }> 
 };
 
 function genreNameFromPath(path: string): string | undefined {
-  const match = path.match(/^\/genre\/([^/?#]+)\/?/);
-  return match?.[1] ? decodeURIComponent(match[1]).replace(/ي/g, "ی").replace(/ك/g, "ک").trim() : undefined;
+  const match = path.match(/^\/(?:genre|seriegenre)\/([^/?#]+)\/?/);
+  return match?.[1] ? normalizeCategoryLabel(decodeURIComponent(match[1]).replace(/-/g, " ")) : undefined;
+}
+
+function countryNameFromPath(path: string): string | undefined {
+  const match = path.match(/^\/country\/([^/?#]+)\/?/);
+  return match?.[1] ? normalizeCategoryLabel(decodeURIComponent(match[1]).replace(/-/g, " ")) : undefined;
 }
 
 export class ShabforooshProvider implements MediaProvider {
   readonly id = SHABFOROOSH_PROVIDER_ID;
   readonly name = "Shabforoosh";
   private readonly client = new ShabforooshClient();
+  private categoriesCache?: Promise<ProviderCategory[]>;
+  private countriesCache?: Promise<ProviderCountry[]>;
+  private genreIdsCache?: Promise<Map<string, { movieId?: string; seriesId?: string }>>;
 
   async search(query: string): Promise<SearchResult[]> {
     const cleanQuery = query.trim();
@@ -99,7 +112,23 @@ export class ShabforooshProvider implements MediaProvider {
     return parseHomeSections(html, this.client.baseUrl);
   }
 
+  async getCatalogSections(type: "movie" | "series"): Promise<HomeSection[]> {
+    const sections = await this.getHomeSections();
+
+    return sections
+      .map((section) => ({
+        ...section,
+        items: section.items.filter((item) => item.type === type),
+      }))
+      .filter((section) => section.items.length);
+  }
+
   async getCategories(): Promise<ProviderCategory[]> {
+    this.categoriesCache ??= this.fetchCategories();
+    return this.categoriesCache;
+  }
+
+  private async fetchCategories(): Promise<ProviderCategory[]> {
     const text = await this.client.get("/wp-json/wp/v2/categories?per_page=100");
     const payload = JSON.parse(text) as { data?: Array<{ id?: number; name?: string; count?: number }> } | Array<{ id?: number; name?: string; count?: number }>;
     const categories = Array.isArray(payload) ? payload : payload.data ?? [];
@@ -126,6 +155,46 @@ export class ShabforooshProvider implements MediaProvider {
     }));
 
     return [...knownGenres, ...wpCategories];
+  }
+
+  async getCountries() {
+    this.countriesCache ??= this.fetchCountriesFromMApi();
+    return this.countriesCache;
+  }
+
+  private async fetchCountriesFromMApi() {
+    const countries = new Map<string, { id: string; name: string }>();
+    const endpoints = ["movies", "series"] as const;
+    const pages = [1, 2, 3, 4];
+
+    await Promise.allSettled(
+      endpoints.flatMap((endpoint) =>
+        pages.map(async (page) => {
+          const text = await this.client.get(`/wp-json/mapi/v1/post/${endpoint}?page=${page}&per_page=50`);
+          const payload = JSON.parse(text) as {
+            data?: Array<{ countries?: Array<{ id?: number | string; name?: string }> }>;
+          };
+
+          for (const item of payload.data ?? []) {
+            for (const country of item.countries ?? []) {
+              const id = country.id ? String(country.id) : "";
+              const name = normalizeCategoryLabel(country.name ?? "");
+
+              if (id && name && !/^(unknown|ناشناخته)$/i.test(name)) {
+                countries.set(name, { id, name });
+              }
+            }
+          }
+        }),
+      ),
+    );
+
+    return [...countries.values()].map((country) => ({
+      provider: this.id,
+      key: encodeURIComponent(country.name.toLowerCase().replace(/\s+/g, "-")),
+      label: country.name,
+      value: country.id,
+    }));
   }
 
   async browse(input: BrowseInput): Promise<BrowseResult> {
@@ -242,8 +311,8 @@ export class ShabforooshProvider implements MediaProvider {
     const genreName = genreNameFromPath(url.pathname);
 
     if (genreName) {
-      const ids = GENRE_IDS_BY_NAME[genreName];
-      const type = input.sourceType === "genre-series" ? "series" : "movie";
+      const ids = await this.resolveGenreIds(genreName);
+      const type = input.sourceType === "genre-series" || url.pathname.startsWith("/seriegenre/") ? "series" : "movie";
       const genres = type === "series" ? ids?.seriesId || ids?.movieId : ids?.movieId;
 
       if (genres) {
@@ -255,6 +324,25 @@ export class ShabforooshProvider implements MediaProvider {
           provider: this.id,
           sourceId: input.id,
           sourceType: input.sourceType || "genre-movie",
+          items: result.items,
+        };
+      }
+    }
+
+    const countryName = countryNameFromPath(url.pathname);
+    if (countryName) {
+      const country = await this.resolveCountry(countryName);
+      const type = input.sourceType === "country-series" ? "series" : "movie";
+
+      if (country?.value) {
+        const result = await this.browse({ type, country: country.value, page: input.page || 1 });
+        return {
+          id: `${this.id}-${input.id}`,
+          title: `${type === "movie" ? "\u0641\u06CC\u0644\u0645\u200C\u0647\u0627\u06CC" : "\u0633\u0631\u06CC\u0627\u0644\u200C\u0647\u0627\u06CC"} ${countryName}`,
+          type: "rail",
+          provider: this.id,
+          sourceId: input.id,
+          sourceType: input.sourceType || "country-movie",
           items: result.items,
         };
       }
@@ -327,5 +415,78 @@ export class ShabforooshProvider implements MediaProvider {
         sourcePath: item.sourcePath,
       })),
     };
+  }
+
+  private async resolveGenreIds(name: string) {
+    const normalizedName = normalizeTaxonomyLabel(name);
+    const sampled = await this.getGenreIdsFromMApi().catch(() => new Map<string, { movieId?: string; seriesId?: string }>());
+    const sampledIds = sampled.get(normalizedName);
+    if (sampledIds?.movieId || sampledIds?.seriesId) {
+      return sampledIds;
+    }
+
+    const known = GENRE_IDS_BY_NAME[name];
+    if (known) {
+      return known;
+    }
+
+    const categories = await this.getCategories().catch(() => []);
+    const category = categories.find((item) => normalizeTaxonomyLabel(item.label) === normalizedName);
+    if (!category) {
+      return undefined;
+    }
+
+    return {
+      movieId: category.movieId || category.seriesId || "",
+      seriesId: category.seriesId || category.movieId,
+    };
+  }
+
+  private async getGenreIdsFromMApi() {
+    this.genreIdsCache ??= this.fetchGenreIdsFromMApi();
+    return this.genreIdsCache;
+  }
+
+  private async fetchGenreIdsFromMApi() {
+    const genres = new Map<string, { movieId?: string; seriesId?: string }>();
+    const endpoints = ["movies", "series"] as const;
+    const pages = [1, 2, 3, 4, 5, 6];
+
+    await Promise.allSettled(
+      endpoints.flatMap((endpoint) =>
+        pages.map(async (page) => {
+          const text = await this.client.get(`/wp-json/mapi/v1/post/${endpoint}?page=${page}&per_page=50`);
+          const payload = JSON.parse(text) as {
+            data?: Array<{ genres?: Array<{ id?: number | string; name?: string }> }>;
+          };
+
+          for (const item of payload.data ?? []) {
+            for (const genre of item.genres ?? []) {
+              const id = genre.id ? String(genre.id) : "";
+              const key = normalizeTaxonomyLabel(genre.name ?? "");
+              if (!id || !key) {
+                continue;
+              }
+
+              const current = genres.get(key) ?? {};
+              if (endpoint === "movies") {
+                current.movieId = id;
+              } else {
+                current.seriesId = id;
+              }
+              genres.set(key, current);
+            }
+          }
+        }),
+      ),
+    );
+
+    return genres;
+  }
+
+  private async resolveCountry(name: string) {
+    const normalizedName = normalizeTaxonomyLabel(name);
+    const countries = await this.getCountries().catch(() => []);
+    return countries.find((country) => normalizeTaxonomyLabel(country.label) === normalizedName);
   }
 }

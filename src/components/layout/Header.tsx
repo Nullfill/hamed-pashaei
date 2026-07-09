@@ -1,7 +1,22 @@
+"use client";
+
 import Link from "next/link";
-import { Film, Search, Menu } from "lucide-react";
+import { Film, Search, Menu, X } from "lucide-react";
+import { useState } from "react";
+
+const navItems = [
+  { href: "/", label: "خانه" },
+  { href: "/movies", label: "فیلم‌ها" },
+  { href: "/series", label: "سریال‌ها" },
+  { href: "/kids", label: "کودک" },
+  { href: "/genres", label: "ژانرها" },
+  { href: "/dubbed", label: "دوبله" },
+  { href: "/subtitled", label: "زیرنویس" },
+];
 
 export function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-50 glass border-b border-white/[0.08]">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -18,27 +33,11 @@ export function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-1 text-sm font-medium lg:flex">
-          <Link href="/" className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            خانه
-          </Link>
-          <Link href="/movies" className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            فیلم‌ها
-          </Link>
-          <Link href="/series" className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            سریال‌ها
-          </Link>
-          <Link href="/kids" className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            کودک
-          </Link>
-          <Link href="/genres" className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            ژانرها
-          </Link>
-          <Link href="/dubbed" className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            دوبله
-          </Link>
-          <Link href="/subtitled" className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            زیرنویس
-          </Link>
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href} className="rounded-lg px-4 py-2 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
         {/* Search & Mobile Menu */}
@@ -65,38 +64,24 @@ export function Header() {
           {/* Mobile Menu Button */}
           <button
             type="button"
+            onClick={() => setMenuOpen((value) => !value)}
             className="grid size-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition-smooth hover:bg-white/10 lg:hidden"
             aria-label="منوی اصلی"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
           >
-            <Menu className="size-5" aria-hidden />
+            {menuOpen ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Navigation - Hidden by default, you can add mobile menu toggle logic later */}
-      <div className="hidden border-t border-white/[0.08] lg:hidden">
+      <div id="mobile-navigation" className={`${menuOpen ? "block" : "hidden"} border-t border-white/[0.08] lg:hidden`}>
         <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3 text-sm font-medium">
-          <Link href="/" className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            خانه
-          </Link>
-          <Link href="/movies" className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            فیلم‌ها
-          </Link>
-          <Link href="/series" className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            سریال‌ها
-          </Link>
-          <Link href="/kids" className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            کودک
-          </Link>
-          <Link href="/genres" className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            ژانرها
-          </Link>
-          <Link href="/dubbed" className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            دوبله فارسی
-          </Link>
-          <Link href="/subtitled" className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
-            زیرنویس فارسی
-          </Link>
+          {navItems.map((item) => (
+            <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
+              {item.label}
+            </Link>
+          ))}
         </nav>
       </div>
     </header>

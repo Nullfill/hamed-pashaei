@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { BrowseResult, MediaType, ProviderCategory } from "@/lib/providers/types";
+import { ChevronDown, Filter, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import type { BrowseResult, MediaType, ProviderCategory, ProviderCountry } from "@/lib/providers/types";
 import { MediaCard } from "@/components/media/MediaCard";
-import { COUNTRIES } from "@/lib/constants/catalog";
 
 type Filters = {
   source?: string;
@@ -32,31 +32,13 @@ function buildParams(type: MediaType, filters: Filters) {
   const params = new URLSearchParams();
   params.set("type", type);
 
-  if (filters.page > 1) {
-    params.set("page", String(filters.page));
-  }
-
-  if (filters.source) {
-    params.set("src", filters.source);
-  }
-
-  if (filters.cats.length) {
-    params.set("cats", filters.cats.join(","));
-  } else if (filters.genres) {
-    params.set("genres", filters.genres);
-  }
-
-  if (filters.country) {
-    params.set("country", filters.country);
-  }
-
-  if (filters.dubbed) {
-    params.set("dubbed", "1");
-  }
-
-  if (filters.subtitle) {
-    params.set("subtitle", "1");
-  }
+  if (filters.page > 1) params.set("page", String(filters.page));
+  if (filters.source) params.set("src", filters.source);
+  if (filters.cats.length) params.set("cats", filters.cats.join(","));
+  else if (filters.genres) params.set("genres", filters.genres);
+  if (filters.country) params.set("country", filters.country);
+  if (filters.dubbed) params.set("dubbed", "1");
+  if (filters.subtitle) params.set("subtitle", "1");
 
   return params;
 }
@@ -75,6 +57,19 @@ function filterCategories(categories: ProviderCategory[] | undefined, type: Medi
   return (categories ?? []).filter((category) => supportsCategory(category, type, source));
 }
 
+function supportsCountry(country: ProviderCountry, source?: string) {
+  const provider = source ? sourceToProvider[source] : undefined;
+  if (provider) {
+    return Boolean(country.sources?.[provider]?.value);
+  }
+
+  return Object.values(country.sources ?? {}).some((sourceValue) => Boolean(sourceValue.value));
+}
+
+function filterCountries(countries: ProviderCountry[] | undefined, source?: string) {
+  return (countries ?? []).filter((country) => supportsCountry(country, source));
+}
+
 export function BrowseView({
   title,
   description,
@@ -88,6 +83,7 @@ export function BrowseView({
   subtitle,
   provider,
   categories,
+  countries,
 }: {
   title: string;
   description: string;
@@ -101,6 +97,7 @@ export function BrowseView({
   subtitle?: boolean;
   provider?: string;
   categories?: ProviderCategory[];
+  countries?: ProviderCountry[];
 }) {
   const router = useRouter();
   const basePath = type === "movie" ? "/movies" : "/series";
@@ -117,8 +114,17 @@ export function BrowseView({
   const [browseResult, setBrowseResult] = useState(result);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
+  const [filtersOpen, setFiltersOpen] = useState(Boolean(selectedCategories || country || dubbed || subtitle));
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showAllCountries, setShowAllCountries] = useState(false);
 
   const visibleCategories = useMemo(() => filterCategories(categories, type, filters.source), [categories, filters.source, type]);
+  const visibleCountries = useMemo(() => filterCountries(countries, filters.source), [countries, filters.source]);
+  const selectedCategoryLabels = visibleCategories.filter((category) => filters.cats.includes(category.key)).map((category) => category.label);
+  const selectedCountry = visibleCountries.find((item) => item.key === filters.country);
+  const activeFilterCount = filters.cats.length + Number(Boolean(filters.country)) + Number(filters.dubbed) + Number(filters.subtitle);
+  const categoryItems = showAllCategories ? visibleCategories : visibleCategories.slice(0, 18);
+  const countryItems = showAllCountries ? visibleCountries : visibleCountries.slice(0, 18);
 
   async function applyFilters(nextFilters: Filters) {
     setFilters(nextFilters);
@@ -155,11 +161,13 @@ export function BrowseView({
 
   function setSource(source?: string) {
     const supportedCategories = filters.cats.filter((key) => {
-      const category = categories?.find((item) => item.key === key);
-      return category ? supportsCategory(category, type, source) : false;
+      const categoryItem = categories?.find((item) => item.key === key);
+      return categoryItem ? supportsCategory(categoryItem, type, source) : false;
     });
+    const nextCountries = filterCountries(countries, source);
+    const supportedCountry = filters.country && nextCountries.find((item) => item.key === filters.country) ? filters.country : undefined;
 
-    void applyFilters({ ...filters, source, cats: supportedCategories, page: 1 });
+    void applyFilters({ ...filters, source, cats: supportedCategories, country: supportedCountry, page: 1 });
   }
 
   function setCountry(value?: string) {
@@ -175,17 +183,24 @@ export function BrowseView({
   }
 
   const sourceButtonClass = (active: boolean) =>
-    `rounded-xl border px-4 py-2.5 text-sm font-medium transition-smooth ${
+    `rounded-lg border px-3 py-2 text-sm font-bold transition-smooth ${
       active
-        ? "border-amber-500 bg-gradient-to-r from-amber-500 to-orange-500 text-black shadow-lg shadow-amber-500/30"
-        : "border-white/[0.08] bg-white/[0.04] text-slate-300 hover:border-amber-500/30 hover:bg-white/[0.08]"
+        ? "border-amber-500 bg-amber-500 text-black shadow-lg shadow-amber-500/20"
+        : "border-white/[0.08] bg-white/[0.04] text-slate-300 hover:border-white/20 hover:bg-white/[0.08]"
     }`;
   const chipClass = (active: boolean) =>
-    `rounded-xl border px-4 py-2.5 text-sm font-medium transition-smooth ${
+    `rounded-lg border px-3 py-2 text-sm font-medium transition-smooth ${
       active
         ? "border-amber-500 bg-amber-500/20 text-amber-400"
         : "border-white/[0.08] bg-white/[0.04] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
     }`;
+  const compactButtonClass = (active: boolean) =>
+    `inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold transition-smooth ${
+      active
+        ? "border-amber-500 bg-white/[0.08] text-amber-300"
+        : "border-white/[0.08] bg-white/[0.04] text-slate-300 hover:border-white/20 hover:bg-white/[0.08]"
+    }`;
+  const clearFilters = () => applyFilters({ source: filters.source, cats: [], dubbed: false, subtitle: false, page: 1 });
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -194,91 +209,109 @@ export function BrowseView({
         <p className="max-w-3xl text-lg text-slate-400">{description}</p>
       </div>
 
-      {/* Quick Filters */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        <button type="button" className={sourceButtonClass(!filters.source)} onClick={() => setSource(undefined)}>
-          🌐 همه محتواها
-        </button>
-        <button type="button" className={sourceButtonClass(filters.source === "a")} onClick={() => setSource("a")}>
-          🔓 بدون سانسور
-        </button>
-        <button type="button" className={sourceButtonClass(filters.source === "b")} onClick={() => setSource("b")}>
-          ✅ سانسور شده
-        </button>
-        <button type="button" className={chipClass(filters.dubbed)} onClick={() => setToggle("dubbed")}>
-          🎤 دوبله فارسی
-        </button>
-        <button type="button" className={chipClass(filters.subtitle)} onClick={() => setToggle("subtitle")}>
-          💬 زیرنویس فارسی
-        </button>
-        {(filters.cats.length > 0 || filters.country || filters.dubbed || filters.subtitle) && (
-          <button
-            type="button"
-            className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-400 transition-smooth hover:bg-red-500/20"
-            onClick={() => applyFilters({ source: filters.source, cats: [], dubbed: false, subtitle: false, page: 1 })}
-          >
-            ✖ پاک کردن فیلترها
-          </button>
-        )}
-      </div>
-
-      {/* Advanced Filters - Collapsible */}
-      <details className="group mb-6">
-        <summary className="flex cursor-pointer items-center justify-between rounded-2xl border border-white/[0.08] bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-6 py-4 transition-all hover:border-amber-500/30">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-full bg-amber-500/20 text-amber-400">
-              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
-            </div>
-            <div>
-              <h2 className="font-bold text-white">فیلترهای پیشرفته</h2>
-              <p className="text-xs text-slate-400">ژانر، کشور، و موارد دیگر</p>
-            </div>
+      <div className="mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--surface)] shadow-2xl shadow-black/20">
+        <div className="flex flex-col gap-3 border-b border-white/[0.08] p-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={sourceButtonClass(!filters.source)} onClick={() => setSource(undefined)}>
+              همه
+            </button>
+            <button type="button" className={sourceButtonClass(filters.source === "a")} onClick={() => setSource("a")}>
+              شب فروش
+            </button>
+            <button type="button" className={sourceButtonClass(filters.source === "b")} onClick={() => setSource("b")}>
+              گپ فیلم
+            </button>
           </div>
-          <span className="text-slate-400 transition-transform group-open:rotate-180">
-            <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </span>
-        </summary>
-        
-        <div className="mt-4 grid gap-6 rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-6 lg:grid-cols-[2fr_1fr]">
-          <div>
-            <h3 className="mb-3 text-sm font-bold text-slate-400">ژانرها</h3>
-            <div className="max-h-60 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-              <div className="flex flex-wrap gap-2">
-                {visibleCategories.map((category) => (
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={compactButtonClass(filters.dubbed)} onClick={() => setToggle("dubbed")}>
+              دوبله فارسی
+            </button>
+            <button type="button" className={compactButtonClass(filters.subtitle)} onClick={() => setToggle("subtitle")}>
+              زیرنویس فارسی
+            </button>
+            <button type="button" className={compactButtonClass(filtersOpen)} onClick={() => setFiltersOpen((value) => !value)}>
+              <SlidersHorizontal className="size-4" aria-hidden />
+              فیلترها
+              {activeFilterCount ? <span className="rounded bg-amber-500 px-1.5 text-xs text-black">{activeFilterCount}</span> : null}
+              <ChevronDown className={`size-4 transition-smooth ${filtersOpen ? "rotate-180" : ""}`} aria-hidden />
+            </button>
+            {activeFilterCount ? (
+              <button type="button" className={compactButtonClass(false)} onClick={clearFilters}>
+                <RotateCcw className="size-4" aria-hidden />
+                پاک کردن
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {activeFilterCount ? (
+          <div className="flex flex-wrap gap-2 px-3 py-3 text-sm text-slate-300">
+            {selectedCategoryLabels.map((label) => (
+              <span key={label} className="rounded-lg bg-white/[0.06] px-2.5 py-1">
+                {label}
+              </span>
+            ))}
+            {selectedCountry ? <span className="rounded-lg bg-white/[0.06] px-2.5 py-1">{selectedCountry.label}</span> : null}
+            {filters.dubbed ? <span className="rounded-lg bg-white/[0.06] px-2.5 py-1">دوبله</span> : null}
+            {filters.subtitle ? <span className="rounded-lg bg-white/[0.06] px-2.5 py-1">زیرنویس</span> : null}
+          </div>
+        ) : null}
+
+        {filtersOpen ? (
+          <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-base font-black text-white">
+                  <Filter className="size-4 text-amber-400" aria-hidden />
+                  ژانر
+                </h2>
+                {visibleCategories.length > 18 ? (
+                  <button type="button" className="text-sm font-bold text-amber-300" onClick={() => setShowAllCategories((value) => !value)}>
+                    {showAllCategories ? "کمتر" : "همه ژانرها"}
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto pr-1">
+                {categoryItems.map((categoryItem) => (
                   <button
-                    key={category.key}
+                    key={categoryItem.key}
                     type="button"
-                    className={chipClass(filters.cats.includes(category.key))}
-                    onClick={() => toggleCategory(category.key)}
+                    className={chipClass(filters.cats.includes(categoryItem.key))}
+                    onClick={() => toggleCategory(categoryItem.key)}
                   >
-                    {category.label}
+                    {categoryItem.label}
                   </button>
                 ))}
               </div>
             </div>
-          </div>
-          <div>
-            <h3 className="mb-3 text-sm font-bold text-slate-400">کشورها</h3>
-            <div className="max-h-60 overflow-y-auto rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-              <div className="flex flex-wrap gap-2">
-                {COUNTRIES.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={chipClass(filters.country === item.id)}
-                    onClick={() => setCountry(item.id)}
-                  >
+
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-black text-white">کشور</h2>
+                {visibleCountries.length > 18 ? (
+                  <button type="button" className="text-sm font-bold text-amber-300" onClick={() => setShowAllCountries((value) => !value)}>
+                    {showAllCountries ? "کمتر" : "همه کشورها"}
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto pr-1">
+                {countryItems.map((item) => (
+                  <button key={item.key} type="button" className={chipClass(filters.country === item.key)} onClick={() => setCountry(item.key)}>
                     {item.label}
                   </button>
                 ))}
               </div>
             </div>
           </div>
-        </div>
-      </details>
+        ) : null}
+      </div>
 
       {error ? (
         <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-200">
+          <button type="button" className="float-left text-red-100" onClick={() => setError(undefined)} aria-label="بستن">
+            <X className="size-4" aria-hidden />
+          </button>
           {error}
         </div>
       ) : null}
@@ -301,12 +334,11 @@ export function BrowseView({
         ) : (
           <div className="rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-12 text-center">
             <p className="text-slate-400">موردی پیدا نشد.</p>
-            <p className="mt-2 text-sm text-slate-500">لطفاً فیلترهای دیگری را امتحان کنید</p>
+            <p className="mt-2 text-sm text-slate-500">لطفا فیلترهای دیگری را امتحان کنید.</p>
           </div>
         )}
       </div>
 
-      {/* Pagination */}
       <div className="mt-10 flex items-center justify-center gap-3">
         <button
           type="button"

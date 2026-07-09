@@ -664,7 +664,13 @@ export function parseHomeSections(html: string, baseUrl: string): HomeSection[] 
           ? sectionTitle.includes(FA_SERIES)
             ? "genre-series"
             : "genre-movie"
-          : "path",
+          : morePath?.startsWith("/seriegenre/")
+            ? "genre-series"
+            : morePath?.startsWith("/country/")
+              ? sectionTitle.includes(FA_SERIES)
+                ? "country-series"
+                : "country-movie"
+              : "path",
       });
 
       if (parsed.success) {

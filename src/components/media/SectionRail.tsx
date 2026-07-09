@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import type { HomeSection } from "@/lib/providers/types";
 import { MediaCard } from "@/components/media/MediaCard";
+import { getInternalDetailsPath } from "@/lib/utils/url";
 
 export function SectionRail({ section }: { section: HomeSection }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -30,7 +31,7 @@ export function SectionRail({ section }: { section: HomeSection }) {
           <h2 className="text-2xl font-bold text-white">{section.title}</h2>
         </div>
         <Link
-          href={section.href || "#"}
+          href={getInternalDetailsPath(item.type, item.id, item.provider)}
           className="group relative block min-h-[18rem] overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--surface)] transition-smooth hover:border-amber-500/30 hover:shadow-2xl hover:shadow-amber-500/10"
         >
           {item.backdrop || item.poster ? (
