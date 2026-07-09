@@ -131,6 +131,8 @@ function FullscreenPlaybackOverlay({
           dubbed={dubbed}
           season={selection?.season}
           episode={selection?.episode}
+          title={title}
+          poster={details.poster}
           autoPlay
           fill
           onControlsVisibilityChange={setControlsVisible}

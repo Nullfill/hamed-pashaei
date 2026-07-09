@@ -63,4 +63,51 @@ await sql`
 await sql`CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id)`;
 await sql`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at)`;
 
+await sql`
+  CREATE TABLE IF NOT EXISTS watch_progress (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    media_id TEXT NOT NULL,
+    season TEXT NOT NULL DEFAULT '0',
+    episode TEXT NOT NULL DEFAULT '0',
+    title TEXT,
+    poster TEXT,
+    progress_seconds INTEGER NOT NULL DEFAULT 0,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT false,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, provider, media_type, media_id, season, episode)
+  )
+`;
+
+await sql`
+  CREATE TABLE IF NOT EXISTS favorites (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    media_id TEXT NOT NULL,
+    title TEXT,
+    poster TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, provider, media_type, media_id)
+  )
+`;
+
+await sql`
+  CREATE TABLE IF NOT EXISTS page_views (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    path TEXT NOT NULL,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )
+`;
+
+await sql`CREATE INDEX IF NOT EXISTS watch_progress_user_id_idx ON watch_progress(user_id)`;
+await sql`CREATE INDEX IF NOT EXISTS watch_progress_updated_at_idx ON watch_progress(updated_at)`;
+await sql`CREATE INDEX IF NOT EXISTS favorites_user_id_idx ON favorites(user_id)`;
+await sql`CREATE INDEX IF NOT EXISTS page_views_created_at_idx ON page_views(created_at)`;
+await sql`CREATE INDEX IF NOT EXISTS page_views_path_idx ON page_views(path)`;
+
 console.log("Database schema is ready.");

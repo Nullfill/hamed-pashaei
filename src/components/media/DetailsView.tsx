@@ -1,6 +1,7 @@
 import { Award, Calendar, Clock, Globe, Languages, Star, Users } from "lucide-react";
 import sanitizeHtml from "sanitize-html";
 import type { MediaDetails } from "@/lib/providers/types";
+import { FavoriteButton } from "@/components/media/FavoriteButton";
 import { MoviePlaybackButton, SeriesPlaybackPanel } from "@/components/media/DetailsPlayback";
 import { MediaCard } from "@/components/media/MediaCard";
 
@@ -106,7 +107,10 @@ export function DetailsView({ details }: { details: MediaDetails }) {
                 {details.age ? <span className="rounded-lg border border-white/[0.08] bg-white/[0.06] px-3 py-1.5 text-sm font-medium text-slate-300">{details.age}</span> : null}
               </div>
 
-              {details.type === "movie" ? <MoviePlaybackButton details={details} /> : null}
+              <div className="flex flex-wrap gap-3">
+                {details.type === "movie" ? <MoviePlaybackButton details={details} /> : null}
+                <FavoriteButton details={details} />
+              </div>
             </div>
           </div>
         </div>

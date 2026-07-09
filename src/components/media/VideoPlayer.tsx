@@ -30,6 +30,8 @@ interface VideoPlayerProps {
   dubbed?: string;
   season?: string;
   episode?: string;
+  title?: string;
+  poster?: string;
   autoPlay?: boolean;
   fill?: boolean;
   onControlsVisibilityChange?: (visible: boolean) => void;
@@ -138,6 +140,8 @@ export function VideoPlayer({
   dubbed = "0",
   season,
   episode,
+  title,
+  poster,
   autoPlay = false,
   fill = false,
   onControlsVisibilityChange,
@@ -149,6 +153,7 @@ export function VideoPlayer({
   const gestureRef = useRef<TouchGesture | null>(null);
   const pendingResumeRef = useRef(0);
   const lastSavedAtRef = useRef(0);
+  const lastServerSavedAtRef = useRef(0);
 
   const progressKey = useMemo(() => storageKey({ id, type, provider, season, episode }), [episode, id, provider, season, type]);
   const [data, setData] = useState<PlaybackData>({ sources: [] });
@@ -197,7 +202,26 @@ export function VideoPlayer({
       const preferredMode: PlaybackMode = dubbed === "1" && hasDub ? "dub" : hasDub ? "dub" : hasSub ? "sub" : "dub";
       const firstSource = sortedSources.find((source) => sourceMode(source) === preferredMode) ?? sortedSources[0];
 
-      pendingResumeRef.current = readProgress(progressKey);
+      let serverProgress = 0;
+      const progressParams = new URLSearchParams({
+        type,
+        id,
+        provider: provider || "default",
+      });
+      if (season) progressParams.set("season", season);
+      if (episode) progressParams.set("episode", episode);
+
+      const progressResponse = await fetch(`/api/activity/progress?${progressParams.toString()}`, {
+        signal: controller.signal,
+        cache: "no-store",
+      }).catch(() => undefined);
+
+      if (progressResponse?.ok) {
+        const progressPayload = (await progressResponse.json()) as { progress?: { progressSeconds?: number } };
+        serverProgress = Number(progressPayload.progress?.progressSeconds || 0);
+      }
+
+      pendingResumeRef.current = Math.max(serverProgress, readProgress(progressKey));
       setData({ ...payload, sources: sortedSources });
       setMode(preferredMode);
       setSelected(firstSource);
@@ -213,6 +237,27 @@ export function VideoPlayer({
 
     return () => controller.abort();
   }, [dubbed, episode, id, progressKey, provider, season, type]);
+
+  const saveServerProgress = (time: number, videoDuration: number) => {
+    if (!Number.isFinite(time) || time < 5) return;
+
+    void fetch("/api/activity/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: provider || "default",
+        type,
+        id,
+        season,
+        episode,
+        title,
+        poster: data.poster || poster,
+        progressSeconds: Math.floor(time),
+        durationSeconds: Number.isFinite(videoDuration) ? Math.floor(videoDuration) : 0,
+      }),
+      keepalive: true,
+    }).catch(() => undefined);
+  };
 
   const modes = useMemo(() => {
     const available = new Set<PlaybackMode>();
@@ -262,12 +307,17 @@ export function VideoPlayer({
         writeProgress(progressKey, video.currentTime, video.duration);
         lastSavedAtRef.current = now;
       }
+      if (now - lastServerSavedAtRef.current > 12000) {
+        saveServerProgress(video.currentTime, video.duration);
+        lastServerSavedAtRef.current = now;
+      }
     };
     const handleDurationChange = () => setDuration(video.duration || 0);
     const handlePlay = () => setPlaying(true);
     const handlePause = () => {
       setPlaying(false);
       writeProgress(progressKey, video.currentTime, video.duration);
+      saveServerProgress(video.currentTime, video.duration);
     };
     const handleEnded = () => {
       setPlaying(false);
@@ -295,7 +345,7 @@ export function VideoPlayer({
       video.removeEventListener("ended", handleEnded);
       video.removeEventListener("volumechange", handleVolumeChange);
     };
-  }, [autoPlay, progressKey, sourceKey]);
+  }, [autoPlay, progressKey, sourceKey, data.poster, episode, id, poster, provider, season, title, type]);
 
   useEffect(() => {
     if (!selected) {
@@ -438,6 +488,7 @@ export function VideoPlayer({
   function selectSource(source: PlaybackSource) {
     pendingResumeRef.current = videoRef.current?.currentTime || currentTime || readProgress(progressKey);
     if (videoRef.current) writeProgress(progressKey, pendingResumeRef.current, videoRef.current.duration);
+    if (videoRef.current) saveServerProgress(pendingResumeRef.current, videoRef.current.duration);
     void keepFullscreenLandscape();
     setSelected(source);
     setShowSettings(false);
