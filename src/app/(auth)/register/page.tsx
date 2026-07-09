@@ -23,7 +23,6 @@ export default async function RegisterPage({
       <div className="w-full rounded-2xl border border-white/[0.08] bg-[var(--surface)] p-6 shadow-2xl shadow-black/20">
         <div className="mb-6">
           <h1 className="text-3xl font-black text-white">ثبت نام</h1>
-          <p className="mt-2 text-sm text-slate-400">اولین کاربری که ثبت نام کند مدیر سایت می‌شود.</p>
         </div>
 
         {params.error ? <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">{params.error}</div> : null}
