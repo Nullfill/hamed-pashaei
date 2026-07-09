@@ -3,10 +3,22 @@ import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import {
+  countDbUsers,
+  createDbSession,
+  createDbUser,
+  deleteDbSession,
+  findDbSessionByTokenHash,
+  findDbUserByEmail,
+  findDbUserById,
+  listDbUsers,
+  updateDbUserAccess,
+} from "@/lib/auth/dbStore";
 import type { AuthStoreData, PublicUser, StoredSession, StoredUser, UserRole, UserStatus } from "@/lib/auth/types";
 
 const storePath = process.env.AUTH_STORE_PATH || path.join(process.cwd(), "data", "auth.json");
 const emptyStore: AuthStoreData = { users: [], sessions: [] };
+const useDatabaseStore = Boolean(process.env.DATABASE_URL);
 let writeQueue = Promise.resolve();
 
 function toPublicUser(user: StoredUser): PublicUser {
@@ -67,27 +79,50 @@ export function normalizeEmail(email: string): string {
 }
 
 export async function countUsers(): Promise<number> {
+  if (useDatabaseStore) {
+    return countDbUsers();
+  }
+
   const store = await readStore();
   return store.users.length;
 }
 
 export async function listUsers(): Promise<PublicUser[]> {
+  if (useDatabaseStore) {
+    return listDbUsers();
+  }
+
   const store = await readStore();
   return store.users.map(toPublicUser).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function findUserByEmail(email: string): Promise<StoredUser | undefined> {
-  const store = await readStore();
   const normalized = normalizeEmail(email);
+  if (useDatabaseStore) {
+    return findDbUserByEmail(normalized);
+  }
+
+  const store = await readStore();
   return store.users.find((user) => user.email === normalized);
 }
 
 export async function findUserById(id: string): Promise<StoredUser | undefined> {
+  if (useDatabaseStore) {
+    return findDbUserById(id);
+  }
+
   const store = await readStore();
   return store.users.find((user) => user.id === id);
 }
 
 export async function createUser(input: { name?: string; email: string; passwordHash: string; role?: UserRole }): Promise<PublicUser> {
+  if (useDatabaseStore) {
+    return createDbUser({
+      ...input,
+      email: normalizeEmail(input.email),
+    });
+  }
+
   return withWrite(async () => {
     const store = await readStore();
     const email = normalizeEmail(input.email);
@@ -115,6 +150,11 @@ export async function createUser(input: { name?: string; email: string; password
 }
 
 export async function updateUserAccess(input: { userId: string; role: UserRole; status: UserStatus }): Promise<void> {
+  if (useDatabaseStore) {
+    await updateDbUserAccess(input);
+    return;
+  }
+
   return withWrite(async () => {
     const store = await readStore();
     const user = store.users.find((item) => item.id === input.userId);
@@ -135,6 +175,10 @@ export async function updateUserAccess(input: { userId: string; role: UserRole; 
 }
 
 export async function createSession(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<StoredSession> {
+  if (useDatabaseStore) {
+    return createDbSession(input);
+  }
+
   return withWrite(async () => {
     const store = await readStore();
     const session: StoredSession = {
@@ -153,6 +197,10 @@ export async function createSession(input: { userId: string; tokenHash: string; 
 }
 
 export async function findSessionByTokenHash(tokenHash: string): Promise<{ session: StoredSession; user: StoredUser } | undefined> {
+  if (useDatabaseStore) {
+    return findDbSessionByTokenHash(tokenHash);
+  }
+
   const store = await readStore();
   const session = store.sessions.find((item) => item.tokenHash === tokenHash);
   if (!session || new Date(session.expiresAt).getTime() <= Date.now()) {
@@ -168,6 +216,11 @@ export async function findSessionByTokenHash(tokenHash: string): Promise<{ sessi
 }
 
 export async function deleteSession(tokenHash: string): Promise<void> {
+  if (useDatabaseStore) {
+    await deleteDbSession(tokenHash);
+    return;
+  }
+
   return withWrite(async () => {
     const store = await readStore();
     store.sessions = store.sessions.filter((session) => session.tokenHash !== tokenHash);
