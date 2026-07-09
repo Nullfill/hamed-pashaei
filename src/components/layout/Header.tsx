@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Film, Search, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Film, Search, Menu, X, User, Shield } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { PublicUser } from "@/lib/auth/types";
 
 const navItems = [
   { href: "/", label: "خانه" },
@@ -16,6 +17,21 @@ const navItems = [
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [user, setUser] = useState<PublicUser>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch("/api/auth/me", { signal: controller.signal, cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((payload: { user?: PublicUser } | undefined) => {
+        if (!controller.signal.aborted) setUser(payload?.user);
+      })
+      .catch(() => undefined);
+
+    return () => controller.abort();
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 glass border-b border-white/[0.08]">
@@ -61,6 +77,44 @@ export function Header() {
             />
           </form>
 
+          {user ? (
+            <div className="relative hidden lg:block">
+              <button
+                type="button"
+                onClick={() => setAccountOpen((value) => !value)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-bold text-slate-200 transition-smooth hover:border-amber-500/50 hover:bg-white/10"
+                aria-expanded={accountOpen}
+              >
+                <User className="size-4 text-amber-300" aria-hidden />
+                <span className="max-w-28 truncate">{user.name || user.email}</span>
+              </button>
+
+              {accountOpen ? (
+                <div className="absolute left-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-white/[0.08] bg-[#111118] p-2 shadow-2xl shadow-black/30">
+                  <div className="border-b border-white/[0.08] px-3 py-2">
+                    <p className="truncate text-sm font-black text-white">{user.name || "حساب کاربری"}</p>
+                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                  </div>
+                  {user.role === "ADMIN" ? (
+                    <Link href="/admin" onClick={() => setAccountOpen(false)} className="mt-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08] hover:text-white">
+                      <Shield className="size-4 text-amber-300" aria-hidden />
+                      پنل مدیریت
+                    </Link>
+                  ) : null}
+                  <form action="/api/auth/logout" method="post" className="mt-1">
+                    <button type="submit" className="w-full rounded-lg px-3 py-2 text-right text-sm font-bold text-slate-300 hover:bg-white/[0.08] hover:text-white">
+                      خروج
+                    </button>
+                  </form>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <Link href="/login" className="hidden h-10 items-center rounded-xl bg-amber-500 px-4 text-sm font-black text-black transition-smooth hover:bg-amber-400 lg:inline-flex">
+              ورود
+            </Link>
+          )}
+
           {/* Mobile Menu Button */}
           <button
             type="button"
@@ -82,6 +136,24 @@ export function Header() {
               {item.label}
             </Link>
           ))}
+          {user ? (
+            <>
+              {user.role === "ADMIN" ? (
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-2.5 text-slate-300 transition-smooth hover:bg-white/10 hover:text-white">
+                  پنل مدیریت
+                </Link>
+              ) : null}
+              <form action="/api/auth/logout" method="post" className="px-4 py-2">
+                <button type="submit" className="text-sm font-bold text-slate-300">
+                  خروج
+                </button>
+              </form>
+            </>
+          ) : (
+            <Link href="/login" onClick={() => setMenuOpen(false)} className="rounded-lg px-4 py-2.5 font-bold text-amber-300 transition-smooth hover:bg-white/10">
+              ورود
+            </Link>
+          )}
         </nav>
       </div>
     </header>
