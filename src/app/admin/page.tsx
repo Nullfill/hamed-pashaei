@@ -47,7 +47,7 @@ function ActivityList({
               ) : (
                 <p className="font-bold text-white">{item.title}</p>
               )}
-              <p className="mt-1 text-xs text-slate-500">{item.meta}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{item.meta}</p>
             </div>
           ))
         ) : (
@@ -59,22 +59,25 @@ function ActivityList({
 }
 
 export default async function AdminPage() {
-  const [users, traffic, dailyTraffic, latestProgress, latestFavorites] = await Promise.all([
+  const [users, traffic, dailyTraffic, watchItems, favoriteItems] = await Promise.all([
     listUsers(),
     getTrafficSummary(),
     getDailyTraffic(14),
-    listWatchProgress(undefined, 8),
-    listFavorites(undefined, 8),
+    listWatchProgress(undefined, 100),
+    listFavorites(undefined, 100),
   ]);
   const admins = users.filter((user) => user.role === "ADMIN").length;
   const activeUsers = users.filter((user) => user.status === "ACTIVE").length;
+  const userName = new Map(users.map((user) => [user.id, user.name || user.email]));
+  const latestProgress = watchItems.slice(0, 8);
+  const latestFavorites = favoriteItems.slice(0, 8);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-black text-white">داشبورد</h1>
-          <p className="mt-2 text-sm text-slate-400">نمای کلی کاربران، فعالیت تماشا، علاقه‌مندی‌ها و بازدید سایت</p>
+          <h1 className="text-3xl font-black text-white">داشبورد مدیریت</h1>
+          <p className="mt-2 text-sm text-slate-400">نمای روشن از کاربران، بازدید سایت، تماشاها و فیلم‌های نشان‌شده</p>
         </div>
         <Link href="/admin/users" className="w-fit rounded-lg bg-amber-500 px-4 py-2 text-sm font-black text-black transition-smooth hover:bg-amber-400">
           مدیریت کاربران
@@ -88,10 +91,11 @@ export default async function AdminPage() {
         <StatCard title="بازدید امروز" value={traffic.today} icon={Eye} tone="red" />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="بازدید این ماه" value={traffic.thisMonth} icon={Eye} tone="sky" />
-        <StatCard title="کل بازدید ثبت شده" value={traffic.total} icon={Eye} />
-        <StatCard title="فیلم‌های نشان شده" value={latestFavorites.length} icon={Heart} tone="red" />
+        <StatCard title="کل بازدید ثبت‌شده" value={traffic.total} icon={Eye} />
+        <StatCard title="کل آیتم‌های دیده‌شده" value={watchItems.length} icon={Activity} tone="green" />
+        <StatCard title="کل آیتم‌های نشان‌شده" value={favoriteItems.length} icon={Heart} tone="red" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -101,17 +105,17 @@ export default async function AdminPage() {
           items={latestProgress.map((item) => ({
             key: `${item.userId}-${item.provider}-${item.type}-${item.id}-${item.season}-${item.episode}`,
             title: item.title || `${item.type === "movie" ? "فیلم" : "سریال"} ${item.id}`,
-            meta: `${Math.floor(item.progressSeconds / 60).toLocaleString("fa-IR")} دقیقه دیده شده - ${new Date(item.updatedAt).toLocaleString("fa-IR")}`,
+            meta: `${userName.get(item.userId) || "کاربر"} - ${Math.floor(item.progressSeconds / 60).toLocaleString("fa-IR")} دقیقه دیده شده - ${new Date(item.updatedAt).toLocaleString("fa-IR")}`,
             href: `/admin/users/${encodeURIComponent(item.userId)}`,
           }))}
         />
         <ActivityList
-          title="آخرین علاقه‌مندی‌ها"
-          empty="هنوز علاقه‌مندی ثبت نشده است."
+          title="آخرین نشان‌شده‌ها"
+          empty="هنوز آیتمی نشان نشده است."
           items={latestFavorites.map((item) => ({
             key: `${item.userId}-${item.provider}-${item.type}-${item.id}`,
             title: item.title || `${item.type === "movie" ? "فیلم" : "سریال"} ${item.id}`,
-            meta: new Date(item.createdAt).toLocaleString("fa-IR"),
+            meta: `${userName.get(item.userId) || "کاربر"} - ${new Date(item.createdAt).toLocaleString("fa-IR")}`,
             href: `/admin/users/${encodeURIComponent(item.userId)}`,
           }))}
         />

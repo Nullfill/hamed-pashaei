@@ -23,25 +23,25 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <main className="min-h-screen bg-[#08090d] text-white">
-      <div className="border-b border-white/[0.08] bg-[#101117]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+      <header className="border-b border-white/[0.08] bg-[#101117]">
+        <div className="mx-auto flex max-w-[92rem] items-center justify-between gap-4 px-5 py-4 lg:px-8">
           <Link href="/admin" className="flex items-center gap-3">
             <div className="grid size-10 place-items-center rounded-lg bg-amber-500 text-black">
               <Shield className="size-5" aria-hidden />
             </div>
             <div>
               <p className="text-lg font-black">پنل مدیریت</p>
-              <p className="text-xs text-slate-400">کنترل کاربران، فعالیت‌ها و آمار سایت</p>
+              <p className="text-xs text-slate-400">کاربران، تماشاها، نشان‌شده‌ها و آمار بازدید</p>
             </div>
           </Link>
-          <div className="hidden items-center gap-3 text-sm text-slate-300 sm:flex">
-            <BarChart3 className="size-4 text-amber-300" aria-hidden />
-            <span>{user.name || user.email}</span>
+          <div className="flex items-center gap-3 text-sm text-slate-300">
+            <BarChart3 className="hidden size-4 text-amber-300 sm:block" aria-hidden />
+            <span className="max-w-44 truncate">{user.name || user.email}</span>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[15rem_1fr] lg:px-8">
+      <div className="mx-auto grid max-w-[92rem] gap-6 px-5 py-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:px-8">
         <aside className="lg:sticky lg:top-6 lg:self-start">
           <div className="rounded-xl border border-white/[0.08] bg-[#101117] p-3">
             <nav className="grid gap-1">
