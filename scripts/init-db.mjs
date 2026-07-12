@@ -21,7 +21,10 @@ async function loadEnvFile(path) {
       continue;
     }
 
-    process.env[key] = parts.join("=").trim().replace(/^["']|["']$/g, "");
+    process.env[key] = parts
+      .join("=")
+      .trim()
+      .replace(/^["']|["']$/g, "");
   }
 }
 
@@ -31,7 +34,9 @@ await loadEnvFile(".env");
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  console.error("DATABASE_URL is missing. Add your Neon connection string to .env or .env.local first.");
+  console.error(
+    "DATABASE_URL is missing. Add your Neon connection string to .env or .env.local first.",
+  );
   process.exit(1);
 }
 
@@ -98,16 +103,20 @@ await sql`
   CREATE TABLE IF NOT EXISTS page_views (
     id TEXT PRIMARY KEY,
     user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    visitor_id TEXT,
     path TEXT NOT NULL,
     user_agent TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )
 `;
+await sql`ALTER TABLE page_views ADD COLUMN IF NOT EXISTS visitor_id TEXT`;
 
 await sql`CREATE INDEX IF NOT EXISTS watch_progress_user_id_idx ON watch_progress(user_id)`;
 await sql`CREATE INDEX IF NOT EXISTS watch_progress_updated_at_idx ON watch_progress(updated_at)`;
 await sql`CREATE INDEX IF NOT EXISTS favorites_user_id_idx ON favorites(user_id)`;
 await sql`CREATE INDEX IF NOT EXISTS page_views_created_at_idx ON page_views(created_at)`;
 await sql`CREATE INDEX IF NOT EXISTS page_views_path_idx ON page_views(path)`;
+await sql`CREATE INDEX IF NOT EXISTS page_views_visitor_id_idx ON page_views(visitor_id)`;
+await sql`CREATE INDEX IF NOT EXISTS page_views_visitor_path_created_idx ON page_views(visitor_id, path, created_at DESC)`;
 
 console.log("Database schema is ready.");

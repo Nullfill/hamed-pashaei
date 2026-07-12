@@ -21,6 +21,7 @@ import {
   parseHomeSections,
   parsePlaybackFromAttachment,
   parseSearch,
+  parseTrailerFromPayload,
   toMediaItem,
 } from "./parsers";
 
@@ -29,9 +30,13 @@ const ROOT_CATEGORY_BY_TYPE = {
   series: "7",
 } as const;
 
-const KIDS_SECTION_TEMPLATE_IDS = "2,3,5,10,11,16,37,35,36,34,1,4,6,7,8,9,12,13,14,38,15,39";
+const KIDS_SECTION_TEMPLATE_IDS =
+  "2,3,5,10,11,16,37,35,36,34,1,4,6,7,8,9,12,13,14,38,15,39";
 
-const SHABFOROOSH_TO_GAPFILM_CATEGORY: Record<string, { movie?: string; series?: string }> = {
+const SHABFOROOSH_TO_GAPFILM_CATEGORY: Record<
+  string,
+  { movie?: string; series?: string }
+> = {
   "29": { movie: "9" },
   "108": { series: "18" },
   "2": { movie: "8" },
@@ -64,7 +69,9 @@ export class GapfilmProvider implements MediaProvider {
       return [];
     }
 
-    const payload = await this.client.requestJson<Parameters<typeof parseSearch>[0]>("/api/v1.0/search", {
+    const payload = await this.client.requestJson<
+      Parameters<typeof parseSearch>[0]
+    >("/api/v1.0/search", {
       params: {
         Title: cleanQuery,
         PageIndex: 0,
@@ -83,8 +90,14 @@ export class GapfilmProvider implements MediaProvider {
 
   async getCatalogSections(type: "movie" | "series"): Promise<HomeSection[]> {
     const platformIds = type === "movie" ? [2, 3, 4] : [4, 1, 2];
-    const results = await Promise.allSettled(platformIds.map((platformId) => this.getFirstPageSectionsPayload(platformId, 8, 8)));
-    const sections = results.flatMap((result) => (result.status === "fulfilled" ? parseHomeSections(result.value) : []));
+    const results = await Promise.allSettled(
+      platformIds.map((platformId) =>
+        this.getFirstPageSectionsPayload(platformId, 8, 8),
+      ),
+    );
+    const sections = results.flatMap((result) =>
+      result.status === "fulfilled" ? parseHomeSections(result.value) : [],
+    );
 
     return sections
       .map((section) => ({
@@ -94,19 +107,26 @@ export class GapfilmProvider implements MediaProvider {
       .filter((section) => section.items.length);
   }
 
-  private async getFirstPageSectionsPayload(platformId: number, pageSize: number, contentRows: number) {
-    return this.client.requestJson<Parameters<typeof parseHomeSections>[0]>("/api/v3.3/GetFirstPageByPlatform", {
-      params: {
-        PlatformId: platformId,
-        PlatformType: 1,
-        PageType: 1,
-        PageSize: pageSize,
-        PageIndex: 0,
-        ContentRows: contentRows,
-        ParentType: 2,
-        ClientTags: "Web",
+  private async getFirstPageSectionsPayload(
+    platformId: number,
+    pageSize: number,
+    contentRows: number,
+  ) {
+    return this.client.requestJson<Parameters<typeof parseHomeSections>[0]>(
+      "/api/v3.3/GetFirstPageByPlatform",
+      {
+        params: {
+          PlatformId: platformId,
+          PlatformType: 1,
+          PageType: 1,
+          PageSize: pageSize,
+          PageIndex: 0,
+          ContentRows: contentRows,
+          ParentType: 2,
+          ClientTags: "Web",
+        },
       },
-    });
+    );
   }
 
   async getKidsSections(): Promise<HomeSection[]> {
@@ -114,10 +134,16 @@ export class GapfilmProvider implements MediaProvider {
     const totalPages = Math.max(firstPage.Result?.TotalPage ?? 1, 1);
     const otherPages =
       totalPages > 1
-        ? await Promise.all(Array.from({ length: totalPages - 1 }, (_, index) => this.getKidsSectionsPage(index + 1)))
+        ? await Promise.all(
+            Array.from({ length: totalPages - 1 }, (_, index) =>
+              this.getKidsSectionsPage(index + 1),
+            ),
+          )
         : [];
 
-    return [firstPage, ...otherPages].flatMap((payload) => parseHomeSections(payload));
+    return [firstPage, ...otherPages].flatMap((payload) =>
+      parseHomeSections(payload),
+    );
   }
 
   private async getKidsSectionsPage(pageIndex: number) {
@@ -150,10 +176,15 @@ export class GapfilmProvider implements MediaProvider {
     const categoryId = this.resolveCategory(input);
 
     if (input.dubbed || input.subtitle || input.country) {
-      const payload = await this.client.requestJson<Parameters<typeof parseAdvancedBrowse>[0]>("/api/v1.1/search/advance-search", {
+      const payload = await this.client.requestJson<
+        Parameters<typeof parseAdvancedBrowse>[0]
+      >("/api/v1.1/search/advance-search", {
         params: {
           ZoneId: input.type === "series" ? 3 : 4,
-          CategoryId: categoryId === ROOT_CATEGORY_BY_TYPE[input.type] ? undefined : categoryId,
+          CategoryId:
+            categoryId === ROOT_CATEGORY_BY_TYPE[input.type]
+              ? undefined
+              : categoryId,
           Country: input.country,
           isDubbed: input.dubbed || undefined,
           isSubtitled: input.subtitle || undefined,
@@ -165,7 +196,9 @@ export class GapfilmProvider implements MediaProvider {
       return parseAdvancedBrowse(payload, page + 1);
     }
 
-    const payload = await this.client.requestJson<Parameters<typeof parseBrowse>[0]>("/api/v1.0/GetContentList", {
+    const payload = await this.client.requestJson<
+      Parameters<typeof parseBrowse>[0]
+    >("/api/v1.0/GetContentList", {
       method: "POST",
       body: {
         request: {
@@ -184,36 +217,73 @@ export class GapfilmProvider implements MediaProvider {
 
   async getDetails(input: MediaPath): Promise<MediaDetails> {
     const payload = await this.getContent(input.id);
-    const seasons = payload.Result?.SeasonList?.filter((season) => season.SeasonType === 7 || season.SeasonType === undefined) ?? [];
-    const episodes = input.type === "series" ? (await Promise.all(seasons.map((season) => this.getSeasonEpisodes(input.id, season.SeasonId ?? 1)))).flat() : undefined;
+    const seasons =
+      payload.Result?.SeasonList?.filter(
+        (season) => season.SeasonType === 7 || season.SeasonType === undefined,
+      ) ?? [];
+    const seasonIds = [
+      ...new Set(seasons.map((season) => season.SeasonId ?? 1)),
+    ];
+    if (!seasonIds.length) seasonIds.push(1);
+    const attachmentResults = await Promise.allSettled(
+      seasonIds.map((seasonId) => this.getAttachments(input.id, seasonId)),
+    );
+    const attachmentPayloads = attachmentResults.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    );
+    const episodes =
+      input.type === "series"
+        ? attachmentPayloads.flatMap((attachments) =>
+            parseEpisodes(attachments),
+          )
+        : undefined;
+    const trailer = attachmentPayloads
+      .map((attachments) => parseTrailerFromPayload(attachments))
+      .find(Boolean);
 
-    return parseDetails(payload as Parameters<typeof parseDetails>[0], episodes);
+    return parseDetails(
+      payload as Parameters<typeof parseDetails>[0],
+      episodes,
+      trailer,
+    );
   }
 
   async getPlayback(input: PlaybackInput): Promise<PlaybackData> {
     const details = await this.getContent(input.id);
-    const poster = parseDetails(details as Parameters<typeof parseDetails>[0]).poster;
-    const seasonId = Number(input.season || details.Result?.SeasonList?.[0]?.SeasonId || 1);
+    const poster = parseDetails(
+      details as Parameters<typeof parseDetails>[0],
+    ).poster;
+    const seasonId = Number(
+      input.season || details.Result?.SeasonList?.[0]?.SeasonId || 1,
+    );
     const attachmentsPayload = await this.getAttachments(input.id, seasonId);
     const attachments = attachmentsFromPayload(attachmentsPayload);
 
     const selectedAttachment =
       input.type === "series" && input.episode
-        ? attachments.find((attachment) => String(attachment.EpisodeNo) === String(input.episode)) ?? attachments[0]
+        ? (attachments.find(
+            (attachment) =>
+              String(attachment.EpisodeNo) === String(input.episode),
+          ) ?? attachments[0])
         : attachments[0];
 
     return parsePlaybackFromAttachment(selectedAttachment, poster);
   }
 
   private async getContent(id: string) {
-    return this.client.requestJson<GapfilmContentEnvelope>("/api/v4/Content/GetContent", {
-      params: { Id: id },
-      headers: { SourceEnvironment: "Website" },
-    });
+    return this.client.requestJson<GapfilmContentEnvelope>(
+      "/api/v4/Content/GetContent",
+      {
+        params: { Id: id },
+        headers: { SourceEnvironment: "Website" },
+      },
+    );
   }
 
   private async getAttachments(id: string, seasonId: number) {
-    return this.client.requestJson<Parameters<typeof attachmentsFromPayload>[0]>("/api/v4/Content/GetContentAttachments", {
+    return this.client.requestJson<
+      Parameters<typeof attachmentsFromPayload>[0]
+    >("/api/v4/Content/GetContentAttachments", {
       params: {
         Id: id,
         seasonId,
@@ -223,14 +293,10 @@ export class GapfilmProvider implements MediaProvider {
     });
   }
 
-  private async getSeasonEpisodes(id: string, seasonId: number) {
-    const payload = await this.getAttachments(id, seasonId);
-    return parseEpisodes(payload);
-  }
-
   private resolveCategory(input: BrowseInput): string {
     if (input.genres) {
-      const mapped = SHABFOROOSH_TO_GAPFILM_CATEGORY[input.genres]?.[input.type];
+      const mapped =
+        SHABFOROOSH_TO_GAPFILM_CATEGORY[input.genres]?.[input.type];
       if (mapped) {
         return mapped;
       }
@@ -242,20 +308,34 @@ export class GapfilmProvider implements MediaProvider {
   }
 
   async getCategories() {
-    const payload = await this.client.requestJson<Parameters<typeof parseCategories>[0]>("/api/v1.0/GetCategoryList", {
+    const payload = await this.client.requestJson<
+      Parameters<typeof parseCategories>[0]
+    >("/api/v1.0/GetCategoryList", {
       method: "POST",
       body: { request: { requestId: -1 } },
     });
 
     const categories = parseCategories(payload);
     return categories
-      .filter((category) => category.parentId === ROOT_CATEGORY_BY_TYPE.movie || category.parentId === ROOT_CATEGORY_BY_TYPE.series)
+      .filter(
+        (category) =>
+          category.parentId === ROOT_CATEGORY_BY_TYPE.movie ||
+          category.parentId === ROOT_CATEGORY_BY_TYPE.series,
+      )
       .map((category) => ({
         provider: this.id,
-        key: encodeURIComponent(category.title.toLowerCase().replace(/\s+/g, "-")),
+        key: encodeURIComponent(
+          category.title.toLowerCase().replace(/\s+/g, "-"),
+        ),
         label: category.title,
-        movieId: category.parentId === ROOT_CATEGORY_BY_TYPE.movie ? category.id : undefined,
-        seriesId: category.parentId === ROOT_CATEGORY_BY_TYPE.series ? category.id : undefined,
+        movieId:
+          category.parentId === ROOT_CATEGORY_BY_TYPE.movie
+            ? category.id
+            : undefined,
+        seriesId:
+          category.parentId === ROOT_CATEGORY_BY_TYPE.series
+            ? category.id
+            : undefined,
       }));
   }
 
@@ -312,7 +392,13 @@ export class GapfilmProvider implements MediaProvider {
     const section = payload.Result.Sections?.[0];
     return {
       id: `${this.id}-${input.id}`,
-      title: (section?.Name || "\u0641\u06CC\u0644\u0645 \u0648 \u0633\u0631\u06CC\u0627\u0644").replace(/گپ[\s‌-]*فیلم/g, "").replace(/\s+/g, " ").trim(),
+      title: (
+        section?.Name ||
+        "\u0641\u06CC\u0644\u0645 \u0648 \u0633\u0631\u06CC\u0627\u0644"
+      )
+        .replace(/گپ[\s‌-]*فیلم/g, "")
+        .replace(/\s+/g, " ")
+        .trim(),
       type: "rail" as const,
       items: (payload.Result.Contents ?? []).map(toMediaItem),
       provider: this.id,

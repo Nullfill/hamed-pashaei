@@ -10,7 +10,7 @@ export function Footer() {
             <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600">
               <Film className="size-5" aria-hidden />
             </div>
-            <span className="text-xl font-bold text-white">شب نمایش</span>
+            <span className="text-xl font-bold text-white">فیلیمچی</span>
           </div>
 
           {/* Description */}
@@ -26,7 +26,7 @@ export function Footer() {
           </div>
 
           <p className="text-xs text-slate-600">
-            © {new Date().getFullYear()} شب نمایش. تمامی حقوق محفوظ است.
+            © {new Date().getFullYear()} فیلیمچی. تمامی حقوق محفوظ است.
           </p>
         </div>
       </div>

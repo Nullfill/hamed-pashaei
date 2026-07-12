@@ -14,7 +14,8 @@ import { toProviderAssetProxyUrl } from "@/lib/utils/url";
 
 export const GAPFILM_PROVIDER_ID = "gapfilm";
 
-const CENSORED_BADGE = "\u0633\u0627\u0646\u0633\u0648\u0631 \u0634\u062F\u0647";
+const CENSORED_BADGE =
+  "\u0633\u0627\u0646\u0633\u0648\u0631 \u0634\u062F\u0647";
 const DUBBED_BADGE = "\u062F\u0648\u0628\u0644\u0647";
 const SUBTITLE_BADGE = "\u0632\u06CC\u0631\u0646\u0648\u06CC\u0633";
 const MOVIE_LABEL = "\u0641\u06CC\u0644\u0645";
@@ -159,7 +160,11 @@ function updateTime(content: ApiContent): number | undefined {
   return parseDateMs(content.UpdateDate ?? content.CreateDate);
 }
 
-function imageUrl(content: ApiContent, kind: "portrait" | "landscape", size: number): string | undefined {
+function imageUrl(
+  content: ApiContent,
+  kind: "portrait" | "landscape",
+  size: number,
+): string | undefined {
   const id = getId(content);
   if (!id) {
     return undefined;
@@ -167,7 +172,9 @@ function imageUrl(content: ApiContent, kind: "portrait" | "landscape", size: num
 
   const time = updateTime(content);
   const suffix = time ? `?updateTime=${time}` : "";
-  return toProviderAssetProxyUrl(`https://cdn.gapfilm.ir/image/${size}/panel/${encodeURIComponent(id)}/${kind}.jpg${suffix}`);
+  return toProviderAssetProxyUrl(
+    `https://cdn.gapfilm.ir/image/${size}/panel/${encodeURIComponent(id)}/${kind}.jpg${suffix}`,
+  );
 }
 
 function getId(content: ApiContent): string {
@@ -184,7 +191,12 @@ function getTitleFa(content: ApiContent): string | undefined {
 }
 
 function getTitleEn(content: ApiContent): string | undefined {
-  return content.EnglishBody || content.EnglishTitle || content.ContentEnglishTitle || propValue(content, 3);
+  return (
+    content.EnglishBody ||
+    content.EnglishTitle ||
+    content.ContentEnglishTitle ||
+    propValue(content, 3)
+  );
 }
 
 function splitList(value: string | undefined): string[] {
@@ -247,12 +259,16 @@ export function toMediaItem(content: ApiContent): MediaItem {
   };
 }
 
-export function parseCategories(payload: ApiEnvelope<{ GetCategoryList?: ApiCategory[] }>): GapfilmCategory[] {
+export function parseCategories(
+  payload: ApiEnvelope<{ GetCategoryList?: ApiCategory[] }>,
+): GapfilmCategory[] {
   const result = assertOk(payload, "Gapfilm categories are unavailable.");
 
   return (result.GetCategoryList ?? [])
     .map((category) => ({
-      id: String(category.CategoryID ?? category.CategoryId ?? category.Id ?? ""),
+      id: String(
+        category.CategoryID ?? category.CategoryId ?? category.Id ?? "",
+      ),
       title: category.Title ?? "",
       parentId: category.ParentID ? String(category.ParentID) : undefined,
       zoneId: category.ZoneID,
@@ -260,17 +276,26 @@ export function parseCategories(payload: ApiEnvelope<{ GetCategoryList?: ApiCate
     .filter((category) => category.id && category.title);
 }
 
-export function parseHomeSections(payload: ApiEnvelope<HomeApiResult>): HomeSection[] {
+export function parseHomeSections(
+  payload: ApiEnvelope<HomeApiResult>,
+): HomeSection[] {
   const result = assertOk(payload, "Gapfilm home sections are unavailable.");
 
   return (result.Sections ?? [])
     .map((section, index) => {
-      const items = (section.ContentSummaryRows ?? []).map(toMediaItem).filter((item) => item.id);
+      const items = (section.ContentSummaryRows ?? [])
+        .map(toMediaItem)
+        .filter((item) => item.id);
       const isSlider = section.SectionTemplateId === 2 || index === 0;
 
       return {
         id: `${GAPFILM_PROVIDER_ID}-${section.SectionId ?? index}`,
-        title: sanitizeTitle(section.Title || (isSlider ? "\u0627\u0633\u0644\u0627\u06CC\u062F\u0631" : "\u0641\u06CC\u0644\u0645 \u0648 \u0633\u0631\u06CC\u0627\u0644")),
+        title: sanitizeTitle(
+          section.Title ||
+            (isSlider
+              ? "\u0627\u0633\u0644\u0627\u06CC\u062F\u0631"
+              : "\u0641\u06CC\u0644\u0645 \u0648 \u0633\u0631\u06CC\u0627\u0644"),
+        ),
         type: isSlider ? "slider" : "rail",
         items,
         provider: GAPFILM_PROVIDER_ID,
@@ -281,9 +306,14 @@ export function parseHomeSections(payload: ApiEnvelope<HomeApiResult>): HomeSect
     .filter((section) => section.items.length);
 }
 
-export function parseBrowse(payload: ApiEnvelope<BrowseApiResult>, page: number): BrowseResult {
+export function parseBrowse(
+  payload: ApiEnvelope<BrowseApiResult>,
+  page: number,
+): BrowseResult {
   const result = assertOk(payload, "Gapfilm list is unavailable.");
-  const items = (result.GetContentList ?? []).map(toMediaItem).filter((item) => item.id);
+  const items = (result.GetContentList ?? [])
+    .map(toMediaItem)
+    .filter((item) => item.id);
 
   return {
     items,
@@ -293,8 +323,13 @@ export function parseBrowse(payload: ApiEnvelope<BrowseApiResult>, page: number)
   };
 }
 
-export function parseAdvancedBrowse(payload: SearchApiResult, page: number): BrowseResult {
-  const items = (payload.Contents ?? []).map(toMediaItem).filter((item) => item.id);
+export function parseAdvancedBrowse(
+  payload: SearchApiResult,
+  page: number,
+): BrowseResult {
+  const items = (payload.Contents ?? [])
+    .map(toMediaItem)
+    .filter((item) => item.id);
 
   return {
     items,
@@ -321,7 +356,11 @@ export function parseSearch(payload: SearchApiResult): SearchResult[] {
   });
 }
 
-export function parseDetails(payload: ApiEnvelope<DetailsApiResult>, episodes?: SeriesEpisode[]): MediaDetails {
+export function parseDetails(
+  payload: ApiEnvelope<DetailsApiResult>,
+  episodes?: SeriesEpisode[],
+  trailer?: PlaybackData,
+): MediaDetails {
   const content = assertOk(payload, "Gapfilm details are unavailable.");
   const item = toMediaItem(content);
   const genreNames = splitList(propValue(content, 7));
@@ -352,12 +391,15 @@ export function parseDetails(payload: ApiEnvelope<DetailsApiResult>, episodes?: 
     awards: propValue(content, 13),
     updateText: propValue(content, 48),
     genres: genreNames,
-    genreTerms: categoryTerms.length ? categoryTerms : genreNames.map((name) => ({ name })),
+    genreTerms: categoryTerms.length
+      ? categoryTerms
+      : genreNames.map((name) => ({ name })),
     countries,
     languages,
     actors,
     directors,
     episodes,
+    trailer,
     badges: item.badges,
     sourcePath: item.sourcePath,
     playUrl: item.type === "movie" ? `/watch/movie/${item.id}` : undefined,
@@ -382,15 +424,27 @@ function mimeType(file: ApiAttachmentFile): string | undefined {
   return undefined;
 }
 
-export function parseAttachmentLinks(attachment: ApiAttachment | undefined): EpisodeLink[] {
+export function parseAttachmentLinks(
+  attachment: ApiAttachment | undefined,
+): EpisodeLink[] {
   if (!attachment?.Files?.length) {
     return [];
   }
 
-  const faSubtitle = attachment.Files.find((file) => file.Type === 3 && /فارسی|persian|farsi/i.test(file.Description ?? ""))?.Path;
-  const enSubtitle = attachment.Files.find((file) => file.Type === 3 && /english|انگلیسی/i.test(file.Description ?? ""))?.Path;
+  const faSubtitle = attachment.Files.find(
+    (file) =>
+      file.Type === 3 && /فارسی|persian|farsi/i.test(file.Description ?? ""),
+  )?.Path;
+  const enSubtitle = attachment.Files.find(
+    (file) =>
+      file.Type === 3 && /english|انگلیسی/i.test(file.Description ?? ""),
+  )?.Path;
 
-  return attachment.Files.filter((file) => (file.Type === 7 || file.Type === 9) && Boolean(file.Path)).map((file) => ({
+  return attachment.Files.filter(
+    (file) =>
+      (file.Type === 7 || file.Type === 8 || file.Type === 9) &&
+      Boolean(file.Path),
+  ).map((file) => ({
     quality: qualityLabel(file),
     src: file.Path as string,
     subtitleFa: faSubtitle,
@@ -399,7 +453,9 @@ export function parseAttachmentLinks(attachment: ApiAttachment | undefined): Epi
   }));
 }
 
-export function parseEpisodes(payload: ApiEnvelope<AttachmentsApiResult>): SeriesEpisode[] {
+export function parseEpisodes(
+  payload: ApiEnvelope<AttachmentsApiResult>,
+): SeriesEpisode[] {
   const result = assertOk(payload, "Gapfilm episodes are unavailable.");
 
   return (result.Attachments ?? [])
@@ -412,20 +468,43 @@ export function parseEpisodes(payload: ApiEnvelope<AttachmentsApiResult>): Serie
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
 }
 
-export function parsePlaybackFromAttachment(attachment: ApiAttachment | undefined, poster?: string): PlaybackData {
-  const sources: PlaybackSource[] = parseAttachmentLinks(attachment).map((link) => ({
-    quality: link.quality,
-    src: link.src,
-    type: mimeType({ Path: link.src }),
-    subtitleFa: link.subtitleFa,
-    subtitleEn: link.subtitleEn,
-    dubbed: link.dubbed,
-  }));
+export function parsePlaybackFromAttachment(
+  attachment: ApiAttachment | undefined,
+  poster?: string,
+): PlaybackData {
+  const sources: PlaybackSource[] = parseAttachmentLinks(attachment).map(
+    (link) => ({
+      quality: link.quality,
+      src: link.src,
+      type: mimeType({ Path: link.src }),
+      subtitleFa: link.subtitleFa,
+      subtitleEn: link.subtitleEn,
+      dubbed: link.dubbed,
+    }),
+  );
 
-  return { poster: toProviderAssetProxyUrl(attachment?.Thumbnail) || poster, sources };
+  return {
+    poster: toProviderAssetProxyUrl(attachment?.Thumbnail) || poster,
+    sources,
+  };
 }
 
-export function attachmentsFromPayload(payload: ApiEnvelope<AttachmentsApiResult>): ApiAttachment[] {
+export function attachmentsFromPayload(
+  payload: ApiEnvelope<AttachmentsApiResult>,
+): ApiAttachment[] {
   const result = assertOk(payload, "Gapfilm playback links are unavailable.");
   return result.Attachments ?? [];
+}
+
+export function parseTrailerFromPayload(
+  payload: ApiEnvelope<AttachmentsApiResult>,
+): PlaybackData | undefined {
+  const result = assertOk(payload, "Gapfilm trailers are unavailable.");
+  const trailer = result.Trailers?.find((item) =>
+    item.Files?.some((file) => Boolean(file.Path)),
+  );
+  if (!trailer) return undefined;
+
+  const playback = parsePlaybackFromAttachment(trailer);
+  return playback.sources.length ? playback : undefined;
 }

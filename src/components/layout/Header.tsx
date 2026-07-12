@@ -41,7 +41,7 @@ export function Header() {
             <Film className="size-6" aria-hidden />
           </div>
           <div className="hidden flex-col sm:flex">
-            <span className="text-lg font-bold leading-tight tracking-tight">شب نمایش</span>
+            <span className="text-lg font-bold leading-tight tracking-tight">فیلیمچی</span>
             <span className="text-[10px] font-medium leading-tight text-slate-400">پلتفرم پخش آنلاین</span>
           </div>
         </Link>

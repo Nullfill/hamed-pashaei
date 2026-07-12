@@ -1,4 +1,13 @@
-import type { BrowseInput, BrowseResult, HomeSection, MediaProvider, ProviderCategory, ProviderCountry, SearchResult } from "@/lib/providers/types";
+import type {
+  BrowseInput,
+  BrowseResult,
+  HomeSection,
+  MediaProvider,
+  ProviderCategory,
+  ProviderCountry,
+  SearchResult,
+} from "@/lib/providers/types";
+import { unstable_cache } from "next/cache";
 import { GapfilmProvider } from "@/lib/providers/gapfilm";
 import { ShabforooshProvider } from "@/lib/providers/shabforoosh";
 
@@ -14,7 +23,9 @@ const providerCodes: Record<ProviderId, string> = {
   gapfilm: "b",
 };
 
-const codeProviders = Object.fromEntries(Object.entries(providerCodes).map(([provider, code]) => [code, provider])) as Record<string, ProviderId>;
+const codeProviders = Object.fromEntries(
+  Object.entries(providerCodes).map(([provider, code]) => [code, provider]),
+) as Record<string, ProviderId>;
 
 export function getDefaultProvider() {
   return providers.shabforoosh;
@@ -37,31 +48,67 @@ export function toPublicProviderCode(id?: string): string | undefined {
   return providerCodes[id as ProviderId] || id;
 }
 
-export function fromPublicProviderCode(code?: string | null): ProviderId | undefined {
+export function fromPublicProviderCode(
+  code?: string | null,
+): ProviderId | undefined {
   if (!code) {
     return undefined;
   }
 
-  return codeProviders[code] || (code in providers ? (code as ProviderId) : undefined);
+  return (
+    codeProviders[code] ||
+    (code in providers ? (code as ProviderId) : undefined)
+  );
 }
 
 export function getAllProviders(): MediaProvider[] {
   return Object.values(providers);
 }
 
-export async function searchAllProviders(query: string): Promise<SearchResult[]> {
-  const results = await Promise.allSettled(getAllProviders().map((provider) => provider.search(query)));
-  return results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+const cachedHomeSections = {
+  shabforoosh: unstable_cache(
+    () => providers.shabforoosh.getHomeSections(),
+    ["home-sections-shabforoosh-v1"],
+    { revalidate: 300 },
+  ),
+  gapfilm: unstable_cache(
+    () => providers.gapfilm.getHomeSections(),
+    ["home-sections-gapfilm-v1"],
+    { revalidate: 300 },
+  ),
+};
+
+export async function searchAllProviders(
+  query: string,
+): Promise<SearchResult[]> {
+  const results = await Promise.allSettled(
+    getAllProviders().map((provider) => provider.search(query)),
+  );
+  return results.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
 }
 
 export async function getAllHomeSections(): Promise<HomeSection[]> {
-  const sections = await Promise.allSettled(getAllProviders().map((provider) => provider.getHomeSections()));
-  return withSectionHrefs(sections.flatMap((result) => (result.status === "fulfilled" ? result.value : [])));
+  const sections = await Promise.allSettled(
+    Object.values(cachedHomeSections).map((getSections) => getSections()),
+  );
+  return withSectionHrefs(
+    sections.flatMap((result) =>
+      result.status === "fulfilled" ? result.value : [],
+    ),
+  );
 }
 
-export async function getCatalogSections(type: BrowseInput["type"]): Promise<HomeSection[]> {
+export async function getCatalogSections(
+  type: BrowseInput["type"],
+): Promise<HomeSection[]> {
   const sections = await Promise.allSettled(
-    getAllProviders().map((provider) => (provider.getCatalogSections ? provider.getCatalogSections(type) : provider.getHomeSections())),
+    getAllProviders().map((provider) =>
+      provider.getCatalogSections
+        ? provider.getCatalogSections(type)
+        : provider.getHomeSections(),
+    ),
   );
 
   return withSectionHrefs(
@@ -85,15 +132,26 @@ function withSectionHrefs(sections: HomeSection[]): HomeSection[] {
   }));
 }
 
-export async function browseAllProviders(input: BrowseInput): Promise<BrowseResult> {
+export async function browseAllProviders(
+  input: BrowseInput,
+): Promise<BrowseResult> {
   const countries = input.country ? await getAllCountries() : [];
   const results = await Promise.allSettled(
     getAllProviders()
-      .map((provider) => ({ provider, country: resolveCountryForProvider(countries, provider.id, input.country) }))
+      .map((provider) => ({
+        provider,
+        country: resolveCountryForProvider(
+          countries,
+          provider.id,
+          input.country,
+        ),
+      }))
       .filter(({ country }) => !input.country || country)
       .map(({ provider, country }) => provider.browse({ ...input, country })),
   );
-  const fulfilled = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+  const fulfilled = results.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
+  );
   const items = dedupeItems(fulfilled.flatMap((result) => result.items));
 
   return {
@@ -104,10 +162,17 @@ export async function browseAllProviders(input: BrowseInput): Promise<BrowseResu
   };
 }
 
-export async function browseProvider(providerId: string, input: BrowseInput): Promise<BrowseResult> {
+export async function browseProvider(
+  providerId: string,
+  input: BrowseInput,
+): Promise<BrowseResult> {
   const provider = getProvider(providerId);
   const countries = input.country ? await getAllCountries() : [];
-  const country = resolveCountryForProvider(countries, provider.id, input.country);
+  const country = resolveCountryForProvider(
+    countries,
+    provider.id,
+    input.country,
+  );
 
   if (input.country && !country) {
     return { items: [], page: input.page || 1, totalPages: 1, perPage: 0 };
@@ -126,7 +191,9 @@ function normalizeCategoryLabel(label: string): string {
 }
 
 function categoryKey(label: string): string {
-  return encodeURIComponent(normalizeCategoryLabel(label).toLowerCase().replace(/\s+/g, "-"));
+  return encodeURIComponent(
+    normalizeCategoryLabel(label).toLowerCase().replace(/\s+/g, "-"),
+  );
 }
 
 function countryKey(label: string): string {
@@ -173,7 +240,9 @@ export async function getAllCategories(): Promise<ProviderCategory[]> {
       return provider.getCategories();
     }),
   );
-  const raw = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+  const raw = results.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
   const merged = new Map<string, ProviderCategory>();
 
   for (const category of raw) {
@@ -183,7 +252,12 @@ export async function getAllCategories(): Promise<ProviderCategory[]> {
     }
 
     const key = categoryKey(label);
-    const current = merged.get(key) ?? { provider: "mixed", key, label, sources: {} };
+    const current = merged.get(key) ?? {
+      provider: "mixed",
+      key,
+      label,
+      sources: {},
+    };
     current.movieId ||= category.movieId;
     current.seriesId ||= category.seriesId;
     current.sources ||= {};
@@ -196,7 +270,9 @@ export async function getAllCategories(): Promise<ProviderCategory[]> {
     merged.set(key, current);
   }
 
-  return [...merged.values()].sort((a, b) => a.label.localeCompare(b.label, "fa"));
+  return [...merged.values()].sort((a, b) =>
+    a.label.localeCompare(b.label, "fa"),
+  );
 }
 
 export async function getAllCountries(): Promise<ProviderCountry[]> {
@@ -209,7 +285,9 @@ export async function getAllCountries(): Promise<ProviderCountry[]> {
       return provider.getCountries();
     }),
   );
-  const raw = results.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+  const raw = results.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : [],
+  );
   const merged = new Map<string, ProviderCountry>();
 
   for (const country of raw) {
@@ -219,7 +297,13 @@ export async function getAllCountries(): Promise<ProviderCountry[]> {
     }
 
     const key = countryKey(label);
-    const current = merged.get(key) ?? { provider: "mixed", key, label, value: label, sources: {} };
+    const current = merged.get(key) ?? {
+      provider: "mixed",
+      key,
+      label,
+      value: label,
+      sources: {},
+    };
     current.englishLabel ||= country.englishLabel;
     current.sources ||= {};
     current.sources[country.provider] = {
@@ -230,7 +314,9 @@ export async function getAllCountries(): Promise<ProviderCountry[]> {
     merged.set(key, current);
   }
 
-  return [...merged.values()].sort((a, b) => a.label.localeCompare(b.label, "fa"));
+  return [...merged.values()].sort((a, b) =>
+    a.label.localeCompare(b.label, "fa"),
+  );
 }
 
 function matchesCountry(country: ProviderCountry, key: string): boolean {
@@ -243,7 +329,11 @@ function matchesCountry(country: ProviderCountry, key: string): boolean {
   );
 }
 
-function resolveCountryForProvider(countries: ProviderCountry[], providerId: string, key?: string): string | undefined {
+function resolveCountryForProvider(
+  countries: ProviderCountry[],
+  providerId: string,
+  key?: string,
+): string | undefined {
   if (!key) {
     return undefined;
   }
@@ -266,26 +356,35 @@ export async function browseByCategoryKeys(
   }
 
   const categories = await getAllCategories();
-  const selected = categoryKeys.flatMap((key) => categories.filter((category) => matchesCategory(category, key)));
+  const selected = categoryKeys.flatMap((key) =>
+    categories.filter((category) => matchesCategory(category, key)),
+  );
 
   if (!selected.length) {
     return { items: [], page: input.page || 1, totalPages: 1, perPage: 0 };
   }
 
-  const providerIds = source ? [source] : (Object.keys(providers) as ProviderId[]);
+  const providerIds = source
+    ? [source]
+    : (Object.keys(providers) as ProviderId[]);
   const tasks: Array<Promise<BrowseResult>> = [];
   const callKeys = new Set<string>();
   const countries = input.country ? await getAllCountries() : [];
 
   for (const providerId of providerIds) {
-    const country = resolveCountryForProvider(countries, providerId, input.country);
+    const country = resolveCountryForProvider(
+      countries,
+      providerId,
+      input.country,
+    );
     if (input.country && !country) {
       continue;
     }
 
     for (const category of selected) {
       const sourceIds = category.sources?.[providerId];
-      const genres = input.type === "movie" ? sourceIds?.movieId : sourceIds?.seriesId;
+      const genres =
+        input.type === "movie" ? sourceIds?.movieId : sourceIds?.seriesId;
       if (!genres) {
         continue;
       }
@@ -311,7 +410,9 @@ export async function browseByCategoryKeys(
   }
 
   const results = await Promise.allSettled(tasks);
-  const fulfilled = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+  const fulfilled = results.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
+  );
   const items = dedupeItems(fulfilled.flatMap((result) => result.items));
 
   return {
@@ -323,7 +424,9 @@ export async function browseByCategoryKeys(
 }
 
 export async function getKidsSections(): Promise<HomeSection[]> {
-  const gapfilmKids = await providers.gapfilm.getKidsSections?.().catch(() => []);
+  const gapfilmKids = await providers.gapfilm
+    .getKidsSections?.()
+    .catch(() => []);
   if (gapfilmKids?.length) {
     return gapfilmKids.map((section) => ({
       ...section,
@@ -335,7 +438,9 @@ export async function getKidsSections(): Promise<HomeSection[]> {
   }
 
   const categories = await getAllCategories();
-  const categoryKeys = categories.filter((category) => /انیمیشن|کودک|خانوادگی/.test(category.label)).map((category) => category.key);
+  const categoryKeys = categories
+    .filter((category) => /انیمیشن|کودک|خانوادگی/.test(category.label))
+    .map((category) => category.key);
 
   if (!categoryKeys.length) {
     return [];
@@ -362,7 +467,12 @@ export async function getKidsSections(): Promise<HomeSection[]> {
   ].filter((section) => section.items.length);
 }
 
-export async function getSection(providerCode: string, id: string, sourceType?: string, page?: number): Promise<HomeSection> {
+export async function getSection(
+  providerCode: string,
+  id: string,
+  sourceType?: string,
+  page?: number,
+): Promise<HomeSection> {
   const provider = getProvider(providerCode);
   if (!provider.getSection) {
     throw new Error("Section is unavailable.");

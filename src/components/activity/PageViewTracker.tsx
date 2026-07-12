@@ -1,23 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 export function PageViewTracker() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    const query = searchParams.toString();
-    const path = `${pathname}${query ? `?${query}` : ""}`;
-
     void fetch("/api/activity/page-view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path }),
+      body: JSON.stringify({ path: pathname }),
       keepalive: true,
     }).catch(() => undefined);
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   return null;
 }

@@ -19,8 +19,17 @@ import {
   playbackDataSchema,
   searchResultSchema,
 } from "@/lib/providers/types";
-import { SHABFOROOSH_PROVIDER_ID, dedupeMediaItems, isUsableMediaPath } from "@/lib/providers/shabforoosh/normalizers";
-import { extractImdb, extractYear, normalizeText, splitMetaBadges } from "@/lib/utils/text";
+import {
+  SHABFOROOSH_PROVIDER_ID,
+  dedupeMediaItems,
+  isUsableMediaPath,
+} from "@/lib/providers/shabforoosh/normalizers";
+import {
+  extractImdb,
+  extractYear,
+  normalizeText,
+  splitMetaBadges,
+} from "@/lib/utils/text";
 import {
   extractIdFromPath,
   getCssBackgroundUrl,
@@ -34,7 +43,8 @@ const FA_MOVIE = "\u0641\u06cc\u0644\u0645";
 const FA_SERIES = "\u0633\u0631\u06cc\u0627\u0644";
 const FA_DUBBED = "\u062f\u0648\u0628\u0644\u0647";
 const FA_SUBTITLE = "\u0632\u06cc\u0631\u0646\u0648\u06cc\u0633";
-const FA_FEATURED = "\u0627\u0633\u0644\u0627\u06cc\u062f\u0631 \u0648\u06cc\u0698\u0647";
+const FA_FEATURED =
+  "\u0627\u0633\u0644\u0627\u06cc\u062f\u0631 \u0648\u06cc\u0698\u0647";
 const FA_EPISODE = "\u0642\u0633\u0645\u062a";
 
 type MapiTerm = {
@@ -126,15 +136,21 @@ function readMediaPath(href: string | undefined, baseUrl: string) {
   return { id, type, sourcePath };
 }
 
-function readBadges($: cheerio.CheerioAPI, root: cheerio.Cheerio<AnyNode>, fallbackText = ""): string[] {
+function readBadges(
+  $: cheerio.CheerioAPI,
+  root: cheerio.Cheerio<AnyNode>,
+  fallbackText = "",
+): string[] {
   const badges = new Set(splitMetaBadges(fallbackText));
 
-  root.find(".vz-badge, .badge, .badges span, .yascode-badge").each((_, element) => {
-    const badge = normalizeText($(element).text());
-    if (badge) {
-      badges.add(badge);
-    }
-  });
+  root
+    .find(".vz-badge, .badge, .badges span, .yascode-badge")
+    .each((_, element) => {
+      const badge = normalizeText($(element).text());
+      if (badge) {
+        badges.add(badge);
+      }
+    });
 
   return [...badges];
 }
@@ -190,11 +206,19 @@ function normalizeAssetUrl(url?: string | false): string | undefined {
     return undefined;
   }
 
-  return url.replace("https://shabforoosh.ir/wp-content/uploads/", "https://majnoonbazar.ir/wp-content/uploads/");
+  return url.replace(
+    /^https?:\/\/(?:www\.)?shabforoosh\.ir\/wp-content\/uploads\//i,
+    "https://majnoonbazar.ir/wp-content/uploads/",
+  );
 }
 
-function providerAssetUrl(url: string | false | undefined, baseUrl: string): string | undefined {
-  return toProviderAssetProxyUrl(toAbsoluteUrl(normalizeAssetUrl(url), baseUrl));
+function providerAssetUrl(
+  url: string | false | undefined,
+  baseUrl: string,
+): string | undefined {
+  return toProviderAssetProxyUrl(
+    toAbsoluteUrl(normalizeAssetUrl(url), baseUrl),
+  );
 }
 
 function normalizeTerms(terms?: MapiTerm[]): TaxonomyTerm[] | undefined {
@@ -213,14 +237,19 @@ function normalizePeople(people?: MapiPerson[]): PersonCredit[] | undefined {
     .map((person) => ({
       id: person.id ? String(person.id) : undefined,
       name: normalizeText(person.name),
-      image: toProviderAssetProxyUrl(normalizeAssetUrl(person.profile_actor)) || undefined,
+      image:
+        toProviderAssetProxyUrl(normalizeAssetUrl(person.profile_actor)) ||
+        undefined,
     }))
     .filter((person) => person.name);
 
   return normalized.length ? normalized : undefined;
 }
 
-function mapiItemToMediaItem(item: MapiSearchItem, baseUrl: string): MediaItem | undefined {
+function mapiItemToMediaItem(
+  item: MapiSearchItem,
+  baseUrl: string,
+): MediaItem | undefined {
   const type = mapMApiType(item.type);
   const id = item.id ? String(item.id) : undefined;
   if (!type || !id) {
@@ -229,17 +258,26 @@ function mapiItemToMediaItem(item: MapiSearchItem, baseUrl: string): MediaItem |
 
   const titleFa = normalizeText(item.fa_title);
   const titleEn = normalizeText(item.title || item.normalized_title);
-  const sourcePath = readMediaPath(item.permalink || item.link, baseUrl)?.sourcePath || sourcePathFor(type, id);
+  const sourcePath =
+    readMediaPath(item.permalink || item.link, baseUrl)?.sourcePath ||
+    sourcePathFor(type, id);
 
   return {
     provider: SHABFOROOSH_PROVIDER_ID,
     id,
     type,
-    title: titleFa || titleEn || `${type === "movie" ? FA_MOVIE : FA_SERIES} ${id}`,
+    title:
+      titleFa || titleEn || `${type === "movie" ? FA_MOVIE : FA_SERIES} ${id}`,
     titleFa: titleFa || undefined,
     titleEn: titleEn || undefined,
-    poster: providerAssetUrl(item.thumbnail || item.thumb || item.image, baseUrl),
-    backdrop: providerAssetUrl(item.background || item.background_image, baseUrl),
+    poster: providerAssetUrl(
+      item.thumbnail || item.thumb || item.image,
+      baseUrl,
+    ),
+    backdrop: providerAssetUrl(
+      item.background || item.background_image,
+      baseUrl,
+    ),
     rating: item.imdb_rate ? String(item.imdb_rate) : undefined,
     badges: readMApiBadges(item),
     sourcePath,
@@ -270,7 +308,10 @@ function htmlMediaItem(input: {
   };
 }
 
-export function parseMApiSearchResults(jsonText: string, baseUrl: string): SearchResult[] {
+export function parseMApiSearchResults(
+  jsonText: string,
+  baseUrl: string,
+): SearchResult[] {
   const payload = JSON.parse(jsonText) as MapiListPayload;
   const results: SearchResult[] = [];
 
@@ -300,7 +341,10 @@ export function parseMApiSearchResults(jsonText: string, baseUrl: string): Searc
   return dedupeMediaItems(results);
 }
 
-export function parseMApiBrowse(jsonText: string, baseUrl: string): BrowseResult {
+export function parseMApiBrowse(
+  jsonText: string,
+  baseUrl: string,
+): BrowseResult {
   const payload = JSON.parse(jsonText) as MapiListPayload;
   const items = (payload.data ?? [])
     .map((item) => mapiItemToMediaItem(item, baseUrl))
@@ -323,7 +367,9 @@ function parseMoviePlaybackLinks(links: unknown): PlaybackSource[] {
     return [];
   }
 
-  const items = Array.isArray(links) ? links : Object.values(links as Record<string, unknown>);
+  const items = Array.isArray(links)
+    ? links
+    : Object.values(links as Record<string, unknown>);
   const sources: PlaybackSource[] = [];
 
   for (const link of items) {
@@ -348,25 +394,37 @@ function parseMoviePlaybackLinks(links: unknown): PlaybackSource[] {
     });
   }
 
-  return sources.sort((a, b) => Number(b.quality || 0) - Number(a.quality || 0));
+  return sources.sort(
+    (a, b) => Number(b.quality || 0) - Number(a.quality || 0),
+  );
 }
 
-function parseSeriesEpisodes(playerLinks: unknown): SeriesEpisode[] | undefined {
+function parseSeriesEpisodes(
+  playerLinks: unknown,
+): SeriesEpisode[] | undefined {
   if (!playerLinks || typeof playerLinks !== "object") {
     return undefined;
   }
 
   const episodes = new Map<string, SeriesEpisode>();
-  const groups = Array.isArray(playerLinks) ? playerLinks : Object.values(playerLinks as Record<string, unknown>);
+  const groups = Array.isArray(playerLinks)
+    ? playerLinks
+    : Object.values(playerLinks as Record<string, unknown>);
 
   groups.forEach((group) => {
     const record = group as {
       season_name?: string;
       quality_link?: string;
       type_link?: string;
-      items?: Array<{ play_link?: string; fasub_link?: string; ensub_link?: string }>;
+      items?: Array<{
+        play_link?: string;
+        fasub_link?: string;
+        ensub_link?: string;
+      }>;
     };
-    const season = Number(normalizeText(record.season_name).match(/\d+/)?.[0] || 1);
+    const season = Number(
+      normalizeText(record.season_name).match(/\d+/)?.[0] || 1,
+    );
     const quality = parseQuality(record.quality_link);
     const dubbed = record.type_link === "dub";
 
@@ -397,11 +455,17 @@ function parseSeriesEpisodes(playerLinks: unknown): SeriesEpisode[] | undefined 
     });
   });
 
-  const list = [...episodes.values()].sort((a, b) => a.season - b.season || a.episode - b.episode);
+  const list = [...episodes.values()].sort(
+    (a, b) => a.season - b.season || a.episode - b.episode,
+  );
   return list.length ? list : undefined;
 }
 
-export function parseMApiDetails(jsonText: string, baseUrl: string, fallback: { id: string; type: MediaType }): MediaDetails {
+export function parseMApiDetails(
+  jsonText: string,
+  baseUrl: string,
+  fallback: { id: string; type: MediaType },
+): MediaDetails {
   const payload = JSON.parse(jsonText) as MapiDetailsPayload;
   const data = payload.data;
   if (!data) {
@@ -411,22 +475,34 @@ export function parseMApiDetails(jsonText: string, baseUrl: string, fallback: { 
   const type = mapMApiType(data.type) || fallback.type;
   const id = data.id ? String(data.id) : fallback.id;
   const titleFa = normalizeText(data.fa_title);
-  const titleEn = normalizeText(data.title || data.second_title || data.normalized_title);
+  const titleEn = normalizeText(
+    data.title || data.second_title || data.normalized_title,
+  );
   const genreTerms = normalizeTerms(data.genres);
   const related = (data.related_posts ?? [])
     .map((item) => mapiItemToMediaItem(item, baseUrl))
     .filter((item): item is MediaItem => Boolean(item));
   const description = normalizeText(data.fa_plot || data.en_plot || data.plot);
+  const poster = providerAssetUrl(
+    data.image || data.thumbnail || data.thumb,
+    baseUrl,
+  );
+  const backdrop = providerAssetUrl(
+    data.background_image || data.background,
+    baseUrl,
+  );
+  const trailerUrl = toAbsoluteUrl(data.trailer, baseUrl);
 
   const parsed = mediaDetailsSchema.safeParse({
     provider: SHABFOROOSH_PROVIDER_ID,
     id,
     type,
-    title: titleFa || titleEn || `${type === "movie" ? FA_MOVIE : FA_SERIES} ${id}`,
+    title:
+      titleFa || titleEn || `${type === "movie" ? FA_MOVIE : FA_SERIES} ${id}`,
     titleFa: titleFa || undefined,
     titleEn: titleEn || undefined,
-    poster: providerAssetUrl(data.image || data.thumbnail || data.thumb, baseUrl),
-    backdrop: providerAssetUrl(data.background_image || data.background, baseUrl),
+    poster,
+    backdrop,
     description: description || undefined,
     rating: data.imdb_rate ? String(data.imdb_rate) : undefined,
     metacritic: data.metacritic_rate ? String(data.metacritic_rate) : undefined,
@@ -442,11 +518,21 @@ export function parseMApiDetails(jsonText: string, baseUrl: string, fallback: { 
     languages: normalizeTerms(data.languages),
     actors: normalizePeople(data.actors),
     directors: normalizePeople(data.directors),
-    episodes: type === "series" ? parseSeriesEpisodes(data.player_links) : undefined,
+    episodes:
+      type === "series" ? parseSeriesEpisodes(data.player_links) : undefined,
     related: related.length ? related : undefined,
+    trailer: trailerUrl
+      ? {
+          poster: backdrop || poster,
+          sources: [{ src: trailerUrl, type: inferVideoType(trailerUrl) }],
+        }
+      : undefined,
     badges: readMApiBadges(data),
     sourcePath: sourcePathFor(type, id),
-    playUrl: type === "movie" ? `/watch/movie/${encodeURIComponent(id)}?dubbed=0` : undefined,
+    playUrl:
+      type === "movie"
+        ? `/watch/movie/${encodeURIComponent(id)}?dubbed=0`
+        : undefined,
   });
 
   if (!parsed.success) {
@@ -459,7 +545,10 @@ export function parseMApiDetails(jsonText: string, baseUrl: string, fallback: { 
 export function parseMApiMoviePlayback(jsonText: string): PlaybackData {
   const payload = JSON.parse(jsonText) as MapiDetailsPayload;
   return {
-    poster: providerAssetUrl(payload.data?.background_image || payload.data?.image, "https://shabforoosh.ir"),
+    poster: providerAssetUrl(
+      payload.data?.background_image || payload.data?.image,
+      "https://shabforoosh.ir",
+    ),
     sources: parseMoviePlaybackLinks(payload.data?.player_links),
   };
 }
@@ -489,12 +578,17 @@ export function parseMApiEpisodePlayback(jsonText: string): PlaybackData {
   return { sources };
 }
 
-export function parseSearchResults(html: string, baseUrl: string): SearchResult[] {
+export function parseSearchResults(
+  html: string,
+  baseUrl: string,
+): SearchResult[] {
   const $ = cheerio.load(html);
   const results: SearchResult[] = [];
   const anchors = $("#results a.card").length
     ? $("#results a.card")
-    : $('a[href*="/movies/"], a[href*="/series/"]').filter((_, element) => isUsableMediaPath(toSourcePath($(element).attr("href"), baseUrl)));
+    : $('a[href*="/movies/"], a[href*="/series/"]').filter((_, element) =>
+        isUsableMediaPath(toSourcePath($(element).attr("href"), baseUrl)),
+      );
 
   anchors.each((_, element) => {
     const root = $(element);
@@ -504,9 +598,15 @@ export function parseSearchResults(html: string, baseUrl: string): SearchResult[
     }
 
     const meta = normalizeText(root.find(".meta").text());
-    const titleFa = normalizeText(root.find(".title-fa").text()) || normalizeText(root.attr("title")) || undefined;
+    const titleFa =
+      normalizeText(root.find(".title-fa").text()) ||
+      normalizeText(root.attr("title")) ||
+      undefined;
     const titleEn = normalizeText(root.find(".title-en").text()) || undefined;
-    const poster = providerAssetUrl(root.find("img").first().attr("src"), baseUrl);
+    const poster = providerAssetUrl(
+      root.find("img").first().attr("src"),
+      baseUrl,
+    );
 
     const parsed = searchResultSchema.safeParse({
       provider: SHABFOROOSH_PROVIDER_ID,
@@ -528,7 +628,10 @@ export function parseSearchResults(html: string, baseUrl: string): SearchResult[
   return dedupeMediaItems(results);
 }
 
-export function parseArchiveMediaItems(html: string, baseUrl: string): MediaItem[] {
+export function parseArchiveMediaItems(
+  html: string,
+  baseUrl: string,
+): MediaItem[] {
   const $ = cheerio.load(html);
   const items: MediaItem[] = [];
 
@@ -539,16 +642,24 @@ export function parseArchiveMediaItems(html: string, baseUrl: string): MediaItem
       return;
     }
 
-    const card = link.closest("article, .vz-item, .item, .post, .movie-item, .serial-item");
+    const card = link.closest(
+      "article, .vz-item, .item, .post, .movie-item, .serial-item",
+    );
     const root = card.length ? card : link;
     const title =
-      normalizeText(root.find(".vz-title, .title, h2, h3, strong").first().text()) ||
-      normalizeText(link.attr("title") || link.text());
+      normalizeText(
+        root.find(".vz-title, .title, h2, h3, strong").first().text(),
+      ) || normalizeText(link.attr("title") || link.text());
     const poster = providerAssetUrl(
-      normalizeAssetUrl(root.find("img").first().attr("src") || root.find("img").first().attr("data-src")),
+      normalizeAssetUrl(
+        root.find("img").first().attr("src") ||
+          root.find("img").first().attr("data-src"),
+      ),
       baseUrl,
     );
-    const rating = normalizeText(root.find(".vz-rate, .rate, .imdb").first().text()) || undefined;
+    const rating =
+      normalizeText(root.find(".vz-rate, .rate, .imdb").first().text()) ||
+      undefined;
 
     if (!title) {
       return;
@@ -568,14 +679,21 @@ export function parseArchiveMediaItems(html: string, baseUrl: string): MediaItem
   return dedupeMediaItems(items);
 }
 
-export function parseHomeSections(html: string, baseUrl: string): HomeSection[] {
+export function parseHomeSections(
+  html: string,
+  baseUrl: string,
+): HomeSection[] {
   const $ = cheerio.load(html);
   const sections: HomeSection[] = [];
   const heroItems: MediaItem[] = [];
 
-  $(".yascode-featured-slider .swiper-slide, .swiper-container .swiper-slide").each((_, element) => {
+  $(
+    ".yascode-featured-slider .swiper-slide, .swiper-container .swiper-slide",
+  ).each((_, element) => {
     const root = $(element);
-    const link = root.find(".yascode-title a, a[href*='/movies/'], a[href*='/series/']").first();
+    const link = root
+      .find(".yascode-title a, a[href*='/movies/'], a[href*='/series/']")
+      .first();
     const media = readMediaPath(link.attr("href"), baseUrl);
     if (!media) {
       return;
@@ -587,8 +705,11 @@ export function parseHomeSections(html: string, baseUrl: string): HomeSection[] 
       htmlMediaItem({
         ...media,
         title,
-        backdrop: toProviderAssetProxyUrl(getCssBackgroundUrl(slideItem.attr("style"), baseUrl)),
-        rating: normalizeText(root.find(".yascode-rate").first().text()) || undefined,
+        backdrop: toProviderAssetProxyUrl(
+          getCssBackgroundUrl(slideItem.attr("style"), baseUrl),
+        ),
+        rating:
+          normalizeText(root.find(".yascode-rate").first().text()) || undefined,
         badges: readBadges($, root),
       }),
     );
@@ -619,10 +740,16 @@ export function parseHomeSections(html: string, baseUrl: string): HomeSection[] 
     }
 
     const items: MediaItem[] = [];
-    const anchors = templateHtml ? section$(".vz-item a, article a") : root.find(".vz-item a, article a");
+    const anchors = templateHtml
+      ? section$(".vz-item a, article a")
+      : root.find(".vz-item a, article a");
     const moreHref =
-      (templateHtml ? section$(".vz-headline a, .vz-more a, a.more").first().attr("href") : root.find(".vz-headline a, .vz-more a, a.more").first().attr("href")) ||
-      undefined;
+      (templateHtml
+        ? section$(".vz-headline a, .vz-more a, a.more").first().attr("href")
+        : root
+            .find(".vz-headline a, .vz-more a, a.more")
+            .first()
+            .attr("href")) || undefined;
     const morePath = moreHref ? toSourcePath(moreHref, baseUrl) : undefined;
 
     anchors.each((__, anchor) => {
@@ -632,9 +759,16 @@ export function parseHomeSections(html: string, baseUrl: string): HomeSection[] 
         return;
       }
 
-      const title = normalizeText(link.find(".vz-title, strong").first().text() || link.attr("title"));
-      const poster = providerAssetUrl(link.find("img").first().attr("src") || link.find("img").first().attr("data-src"), baseUrl);
-      const rating = normalizeText(link.find(".vz-rate, .rate").first().text()) || undefined;
+      const title = normalizeText(
+        link.find(".vz-title, strong").first().text() || link.attr("title"),
+      );
+      const poster = providerAssetUrl(
+        link.find("img").first().attr("src") ||
+          link.find("img").first().attr("data-src"),
+        baseUrl,
+      );
+      const rating =
+        normalizeText(link.find(".vz-rate, .rate").first().text()) || undefined;
 
       if (!title) {
         return;
@@ -682,23 +816,39 @@ export function parseHomeSections(html: string, baseUrl: string): HomeSection[] 
   return sections;
 }
 
-export function parseDetails(html: string, baseUrl: string, input: { id: string; type: MediaType; sourcePath: string }): MediaDetails {
+export function parseDetails(
+  html: string,
+  baseUrl: string,
+  input: { id: string; type: MediaType; sourcePath: string },
+): MediaDetails {
   const $ = cheerio.load(html);
   const bodyText = normalizeText($("body").text());
   const title =
     normalizeText($("h1").first().text()) ||
-    normalizeText($(".title, .post-title, .movie-title, .yascode-title").first().text()) ||
+    normalizeText(
+      $(".title, .post-title, .movie-title, .yascode-title").first().text(),
+    ) ||
     `${input.type === "movie" ? FA_MOVIE : FA_SERIES} ${input.id}`;
   const poster = providerAssetUrl(
-    $(".poster img, .post-poster img, .movie-poster img, img").first().attr("src") ||
-      $("meta[property='og:image']").attr("content"),
+    $(".poster img, .post-poster img, .movie-poster img, img")
+      .first()
+      .attr("src") || $("meta[property='og:image']").attr("content"),
     baseUrl,
   );
   const description =
-    normalizeText($(".description, .post-content, .story, .summary, .entry-content p").first().text()) || undefined;
+    normalizeText(
+      $(".description, .post-content, .story, .summary, .entry-content p")
+        .first()
+        .text(),
+    ) || undefined;
   const rating =
-    normalizeText($(".imdb, .rating, .vz-rate, .yascode-rate").first().text()).replace(/^IMDb\s*/i, "") || undefined;
-  const playPath = toSourcePath($("a[href*='/play/']").first().attr("href"), baseUrl);
+    normalizeText(
+      $(".imdb, .rating, .vz-rate, .yascode-rate").first().text(),
+    ).replace(/^IMDb\s*/i, "") || undefined;
+  const playPath = toSourcePath(
+    $("a[href*='/play/']").first().attr("href"),
+    baseUrl,
+  );
   const genres = $(".genre a, a[href*='/genre/']")
     .map((_, element) => normalizeText($(element).text()))
     .get()
@@ -758,7 +908,10 @@ function inferVideoType(src: string, type?: string): string | undefined {
 export function parsePlayback(html: string, baseUrl: string): PlaybackData {
   const $ = cheerio.load(html);
   const video = $("video#video-player").first();
-  const poster = providerAssetUrl(video.attr("poster") || video.attr("data-poster"), baseUrl);
+  const poster = providerAssetUrl(
+    video.attr("poster") || video.attr("data-poster"),
+    baseUrl,
+  );
   const sources: PlaybackSource[] = [];
 
   video.find("source").each((_, element) => {
@@ -769,7 +922,10 @@ export function parsePlayback(html: string, baseUrl: string): PlaybackData {
     }
 
     sources.push({
-      quality: inferQuality(src, source.attr("size") || source.attr("data-quality")),
+      quality: inferQuality(
+        src,
+        source.attr("size") || source.attr("data-quality"),
+      ),
       src,
       type: inferVideoType(src, source.attr("type")),
     });
@@ -786,8 +942,13 @@ export function parsePlayback(html: string, baseUrl: string): PlaybackData {
     }
   }
 
-  const sortedSources = sources.sort((a, b) => Number(b.quality || 0) - Number(a.quality || 0));
-  const parsed = playbackDataSchema.safeParse({ poster, sources: sortedSources });
+  const sortedSources = sources.sort(
+    (a, b) => Number(b.quality || 0) - Number(a.quality || 0),
+  );
+  const parsed = playbackDataSchema.safeParse({
+    poster,
+    sources: sortedSources,
+  });
 
   return parsed.success ? parsed.data : { poster, sources: [] };
 }

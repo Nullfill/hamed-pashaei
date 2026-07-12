@@ -122,6 +122,7 @@ export interface MediaDetails {
   directors?: PersonCredit[];
   episodes?: SeriesEpisode[];
   related?: MediaItem[];
+  trailer?: PlaybackData;
   badges: string[];
   sourcePath: string;
   playUrl?: string;
@@ -173,10 +174,26 @@ export interface MediaProvider {
   getCountries?(): Promise<ProviderCountry[]>;
   getKidsSections?(): Promise<HomeSection[]>;
   getCatalogSections?(type: MediaType): Promise<HomeSection[]>;
-  getSection?(input: { id: string; sourceType?: string; page?: number }): Promise<HomeSection>;
+  getSection?(input: {
+    id: string;
+    sourceType?: string;
+    page?: number;
+  }): Promise<HomeSection>;
 }
 
-const assetUrlSchema = z.union([z.string().url(), z.string().startsWith("/api/provider-asset?")]);
+const assetUrlSchema = z.union([
+  z.string().url(),
+  z.string().startsWith("/api/provider-asset?"),
+]);
+
+const playbackSourceSchema = z.object({
+  quality: z.string().optional(),
+  src: z.string().url(),
+  type: z.string().optional(),
+  subtitleFa: z.string().url().optional(),
+  subtitleEn: z.string().url().optional(),
+  dubbed: z.boolean().optional(),
+});
 
 export const searchResultSchema = z.object({
   provider: z.string(),
@@ -234,11 +251,33 @@ export const mediaDetailsSchema = z.object({
   awards: z.string().optional(),
   updateText: z.string().optional(),
   genres: z.array(z.string()).optional(),
-  genreTerms: z.array(z.object({ id: z.string().optional(), name: z.string() })).optional(),
-  countries: z.array(z.object({ id: z.string().optional(), name: z.string() })).optional(),
-  languages: z.array(z.object({ id: z.string().optional(), name: z.string() })).optional(),
-  actors: z.array(z.object({ id: z.string().optional(), name: z.string(), image: assetUrlSchema.optional() })).optional(),
-  directors: z.array(z.object({ id: z.string().optional(), name: z.string(), image: assetUrlSchema.optional() })).optional(),
+  genreTerms: z
+    .array(z.object({ id: z.string().optional(), name: z.string() }))
+    .optional(),
+  countries: z
+    .array(z.object({ id: z.string().optional(), name: z.string() }))
+    .optional(),
+  languages: z
+    .array(z.object({ id: z.string().optional(), name: z.string() }))
+    .optional(),
+  actors: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        name: z.string(),
+        image: assetUrlSchema.optional(),
+      }),
+    )
+    .optional(),
+  directors: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        name: z.string(),
+        image: assetUrlSchema.optional(),
+      }),
+    )
+    .optional(),
   episodes: z
     .array(
       z.object({
@@ -258,6 +297,12 @@ export const mediaDetailsSchema = z.object({
     )
     .optional(),
   related: z.array(mediaItemSchema).optional(),
+  trailer: z
+    .object({
+      poster: assetUrlSchema.optional(),
+      sources: z.array(playbackSourceSchema),
+    })
+    .optional(),
   badges: z.array(z.string()),
   sourcePath: z.string().min(1),
   playUrl: z.string().optional(),
@@ -266,14 +311,5 @@ export const mediaDetailsSchema = z.object({
 
 export const playbackDataSchema = z.object({
   poster: assetUrlSchema.optional(),
-  sources: z.array(
-    z.object({
-      quality: z.string().optional(),
-      src: z.string().url(),
-      type: z.string().optional(),
-      subtitleFa: z.string().url().optional(),
-      subtitleEn: z.string().url().optional(),
-      dubbed: z.boolean().optional(),
-    }),
-  ),
+  sources: z.array(playbackSourceSchema),
 });

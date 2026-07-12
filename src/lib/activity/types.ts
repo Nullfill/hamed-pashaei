@@ -27,9 +27,23 @@ export interface TrafficSummary {
   today: number;
   thisMonth: number;
   total: number;
+  uniqueToday: number;
+  uniqueThisMonth: number;
 }
 
 export interface DailyTraffic {
   day: string;
   views: number;
+  visitors: number;
+}
+
+export interface ActivityCounts {
+  watch: number;
+  favorites: number;
+}
+
+export interface TopPage {
+  path: string;
+  views: number;
+  visitors: number;
 }
