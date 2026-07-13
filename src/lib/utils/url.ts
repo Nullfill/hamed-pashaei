@@ -3,6 +3,7 @@ import type { MediaType } from "@/lib/providers/types";
 const publicProviderCodes: Record<string, string> = {
   shabforoosh: "a",
   gapfilm: "b",
+  filimo: "c",
 };
 
 function publicProviderCode(provider?: string): string | undefined {

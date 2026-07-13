@@ -30,6 +30,7 @@ interface VideoPlayerProps {
   dubbed?: string;
   season?: string;
   episode?: string;
+  playbackId?: string;
   title?: string;
   poster?: string;
   autoPlay?: boolean;
@@ -140,6 +141,7 @@ export function VideoPlayer({
   dubbed = "0",
   season,
   episode,
+  playbackId,
   title,
   poster,
   autoPlay = false,
@@ -184,9 +186,10 @@ export function VideoPlayer({
       setSelected(undefined);
 
       const params = new URLSearchParams({ type, id, dubbed });
-      if (provider) params.set("src", provider === "gapfilm" ? "b" : provider === "shabforoosh" ? "a" : provider);
+      if (provider) params.set("src", provider === "gapfilm" ? "b" : provider === "shabforoosh" ? "a" : provider === "filimo" ? "c" : provider);
       if (season) params.set("season", season);
       if (episode) params.set("episode", episode);
+      if (playbackId) params.set("playbackId", playbackId);
 
       const response = await fetch(`/api/playback?${params.toString()}`, {
         signal: controller.signal,
@@ -236,7 +239,7 @@ export function VideoPlayer({
       });
 
     return () => controller.abort();
-  }, [dubbed, episode, id, progressKey, provider, season, type]);
+  }, [dubbed, episode, id, playbackId, progressKey, provider, season, type]);
 
   const saveServerProgress = (time: number, videoDuration: number) => {
     if (!Number.isFinite(time) || time < 5) return;
@@ -271,6 +274,10 @@ export function VideoPlayer({
   );
 
   const sourceKey = selected?.src ?? "empty";
+  const selectedIsHls = Boolean(
+    selected &&
+      (selected.type?.includes("mpegurl") || /\.m3u8(?:\?|$)/i.test(selected.src)),
+  );
   const activeSubtitleUrl = selected ? (subtitleMode === "fa" ? selected.subtitleFa : subtitleMode === "en" ? selected.subtitleEn : undefined) : undefined;
   const activeSubtitleText = subtitleMode === "off" ? "" : subtitleCues.find((cue) => currentTime >= cue.start && currentTime <= cue.end)?.text || "";
 
@@ -284,6 +291,30 @@ export function VideoPlayer({
     }
     await lockLandscape();
   }
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !selected || !selectedIsHls) return;
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = selected.src;
+      return;
+    }
+
+    let cancelled = false;
+    let instance: { destroy: () => void } | undefined;
+    void import("hls.js").then(({ default: Hls }) => {
+      if (cancelled || !Hls.isSupported()) return;
+      const hls = new Hls({ enableWorker: true });
+      instance = hls;
+      hls.loadSource(selected.src);
+      hls.attachMedia(video);
+    });
+
+    return () => {
+      cancelled = true;
+      instance?.destroy();
+    };
+  }, [selected, selectedIsHls, sourceKey]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -609,7 +640,7 @@ export function VideoPlayer({
       onPointerCancel={handlePointerCancel}
     >
       <video ref={videoRef} key={sourceKey} poster={data.poster} className={videoClass} style={{ filter: `brightness(${brightness})` }} playsInline preload="metadata">
-        <source src={selected.src} type={selected.type} />
+        {!selectedIsHls ? <source src={selected.src} type={selected.type} /> : null}
       </video>
 
       {activeSubtitleText ? (

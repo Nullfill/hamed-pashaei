@@ -12,6 +12,7 @@ export interface MediaPath {
 }
 
 export interface PlaybackInput extends MediaPath {
+  playbackId?: string;
   dubbed?: string;
   season?: string;
   episode?: string;
@@ -41,6 +42,7 @@ export interface SeriesEpisode {
   episode: number;
   title: string;
   links: EpisodeLink[];
+  playbackId?: string;
 }
 
 export interface BrowseInput {
@@ -293,6 +295,7 @@ export const mediaDetailsSchema = z.object({
             dubbed: z.boolean().optional(),
           }),
         ),
+        playbackId: z.string().optional(),
       }),
     )
     .optional(),

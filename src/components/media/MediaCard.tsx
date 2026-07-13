@@ -17,7 +17,7 @@ export function MediaCard({ item }: { item: CardItem }) {
   const title = getTitle(item);
   const rating = "rating" in item ? item.rating : "imdb" in item ? item.imdb : undefined;
   const badges = item.badges.filter((badge) => badge !== "سانسور شده" && badge !== "بدون سانسور");
-  const isCensored = item.provider === "gapfilm";
+  const isCensored = item.provider === "gapfilm" || item.provider === "filimo";
 
   return (
     <Link

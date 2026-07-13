@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Clapperboard, X } from "lucide-react";
 import type { PlaybackData } from "@/lib/providers/types";
 
@@ -12,6 +12,7 @@ export function TrailerButton({
   title: string;
 }) {
   const [open, setOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const sources = useMemo(
     () =>
       [...(trailer?.sources ?? [])].sort(
@@ -33,6 +34,36 @@ export function TrailerButton({
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [open]);
+
+  const selected = sources[0];
+  const selectedIsHls = Boolean(
+    selected &&
+      (selected.type?.includes("mpegurl") || /\.m3u8(?:\?|$)/i.test(selected.src)),
+  );
+
+  useEffect(() => {
+    if (!open || !selected || !selectedIsHls) return;
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = selected.src;
+      return;
+    }
+
+    let cancelled = false;
+    let instance: { destroy: () => void } | undefined;
+    void import("hls.js").then(({ default: Hls }) => {
+      if (cancelled || !Hls.isSupported()) return;
+      const hls = new Hls({ enableWorker: true });
+      instance = hls;
+      hls.loadSource(selected.src);
+      hls.attachMedia(video);
+    });
+    return () => {
+      cancelled = true;
+      instance?.destroy();
+    };
+  }, [open, selected, selectedIsHls]);
 
   if (!sources.length) return null;
 
@@ -64,13 +95,14 @@ export function TrailerButton({
           </button>
           <div className="w-full max-w-6xl overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
             <video
+              ref={videoRef}
               controls
               autoPlay
               playsInline
               poster={trailer?.poster}
               className="aspect-video w-full bg-black object-contain"
             >
-              {sources.map((source) => (
+              {(selectedIsHls ? [] : sources).map((source) => (
                 <source key={source.src} src={source.src} type={source.type} />
               ))}
               مرورگر شما امکان پخش این تریلر را ندارد.

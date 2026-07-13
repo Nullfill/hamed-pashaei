@@ -8,6 +8,7 @@ import { VideoPlayer } from "@/components/media/VideoPlayer";
 type Selection = {
   season?: string;
   episode?: string;
+  playbackId?: string;
   title?: string;
 };
 
@@ -131,6 +132,7 @@ function FullscreenPlaybackOverlay({
           dubbed={dubbed}
           season={selection?.season}
           episode={selection?.episode}
+          playbackId={selection?.playbackId}
           title={title}
           poster={details.poster}
           autoPlay
@@ -228,6 +230,7 @@ export function SeriesPlaybackPanel({ details }: { details: MediaDetails }) {
     setSelection({
       season: String(episode.season),
       episode: String(episode.episode),
+      playbackId: episode.playbackId,
       title: episode.title,
     });
     setOpen(true);

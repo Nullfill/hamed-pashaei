@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clapperboard, Film, Layers3, Tv } from "lucide-react";
+import { Film, Tv } from "lucide-react";
 import { HeroSlider } from "@/components/media/HeroSlider";
 import { SectionRail } from "@/components/media/SectionRail";
 import type { HomeSection, MediaItem, MediaType } from "@/lib/providers/types";
@@ -31,15 +31,16 @@ function dedupeSections(sections: HomeSection[]) {
 }
 
 function alternateProviderSections(sections: HomeSection[]) {
-  const shabforoosh = sections.filter((section) => section.provider === "shabforoosh");
-  const gapfilm = sections.filter((section) => section.provider === "gapfilm");
-  const other = sections.filter((section) => section.provider !== "shabforoosh" && section.provider !== "gapfilm");
+  const providerOrder = ["gapfilm", "shabforoosh", "filimo"];
+  const buckets = providerOrder.map((provider) => sections.filter((section) => section.provider === provider));
+  const other = sections.filter((section) => !providerOrder.includes(section.provider || ""));
   const mixed: HomeSection[] = [];
-  const max = Math.max(shabforoosh.length, gapfilm.length);
+  const max = Math.max(0, ...buckets.map((bucket) => bucket.length));
 
   for (let index = 0; index < max; index++) {
-    if (gapfilm[index]) mixed.push(gapfilm[index]);
-    if (shabforoosh[index]) mixed.push(shabforoosh[index]);
+    for (const bucket of buckets) {
+      if (bucket[index]) mixed.push(bucket[index]);
+    }
   }
 
   return [...mixed, ...other];
@@ -107,19 +108,11 @@ export function CatalogShowcase({ type, sections }: { type: MediaType; sections:
             </div>
             <div>
               <h1 className="text-2xl font-black text-white sm:text-3xl">{label}</h1>
-              <p className="mt-1 text-sm leading-6 text-slate-400">ویترین ترکیبی از گپ‌فیلم و شب‌فروش، همراه با آرشیو کامل و فیلترها.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">ویترین ترکیبی از چند آرشیو، همراه با جستجو و فیلترهای کامل.</p>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link href={`${basePath}?src=b`} className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-sm font-bold text-slate-200 hover:bg-white/[0.1]">
-              <Layers3 className="size-4" aria-hidden />
-              گپ‌فیلم
-            </Link>
-            <Link href={`${basePath}?src=a`} className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-sm font-bold text-slate-200 hover:bg-white/[0.1]">
-              <Clapperboard className="size-4" aria-hidden />
-              شب‌فروش
-            </Link>
             <Link href={`${basePath}?dubbed=1`} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-300 hover:bg-amber-500/15">
               دوبله
             </Link>

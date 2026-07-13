@@ -32,6 +32,8 @@ function mediaHref(item: {
       ? "b"
       : item.provider === "shabforoosh"
         ? "a"
+        : item.provider === "filimo"
+          ? "c"
         : item.provider;
   const query =
     source && source !== "default" ? `?src=${encodeURIComponent(source)}` : "";

@@ -31,6 +31,7 @@ type Filters = {
 const sourceToProvider: Record<string, string> = {
   a: "shabforoosh",
   b: "gapfilm",
+  c: "filimo",
 };
 
 function splitValues(value?: string): string[] {
@@ -133,7 +134,13 @@ export function BrowseView({
   const router = useRouter();
   const basePath = type === "movie" ? "/movies" : "/series";
   const initialSource =
-    provider === "gapfilm" ? "b" : provider === "shabforoosh" ? "a" : provider;
+    provider === "gapfilm"
+      ? "b"
+      : provider === "shabforoosh"
+        ? "a"
+        : provider === "filimo"
+          ? "c"
+          : provider;
   const [filters, setFilters] = useState<Filters>({
     source: initialSource,
     cats: splitValues(selectedCategories),

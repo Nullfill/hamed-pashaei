@@ -57,6 +57,8 @@ function authPath(path: "login" | "register", details: MediaDetails) {
       ? "b"
       : details.provider === "shabforoosh"
         ? "a"
+        : details.provider === "filimo"
+          ? "c"
         : details.provider;
   if (source) params.set("src", source);
   const next = `/${details.type === "movie" ? "movies" : "series"}/${encodeURIComponent(details.id)}${params.toString() ? `?${params.toString()}` : ""}`;

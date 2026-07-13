@@ -6,20 +6,18 @@ import { SectionRail } from "@/components/media/SectionRail";
 import type { HomeSection } from "@/lib/providers/types";
 
 function alternateProviderSections(sections: HomeSection[]) {
-  const shabforoosh = sections.filter(
-    (section) => section.provider === "shabforoosh",
+  const providerOrder = ["shabforoosh", "gapfilm", "filimo"];
+  const buckets = providerOrder.map((provider) =>
+    sections.filter((section) => section.provider === provider),
   );
-  const gapfilm = sections.filter((section) => section.provider === "gapfilm");
-  const other = sections.filter(
-    (section) =>
-      section.provider !== "shabforoosh" && section.provider !== "gapfilm",
-  );
+  const other = sections.filter((section) => !providerOrder.includes(section.provider || ""));
   const mixed: HomeSection[] = [];
-  const max = Math.max(shabforoosh.length, gapfilm.length);
+  const max = Math.max(0, ...buckets.map((bucket) => bucket.length));
 
   for (let index = 0; index < max; index += 1) {
-    if (shabforoosh[index]) mixed.push(shabforoosh[index]);
-    if (gapfilm[index]) mixed.push(gapfilm[index]);
+    for (const bucket of buckets) {
+      if (bucket[index]) mixed.push(bucket[index]);
+    }
   }
 
   return [...mixed, ...other];

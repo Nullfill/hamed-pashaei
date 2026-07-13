@@ -9,11 +9,13 @@ import type {
 } from "@/lib/providers/types";
 import { unstable_cache } from "next/cache";
 import { GapfilmProvider } from "@/lib/providers/gapfilm";
+import { FilimoProvider } from "@/lib/providers/filimo";
 import { ShabforooshProvider } from "@/lib/providers/shabforoosh";
 
 export const providers = {
   shabforoosh: new ShabforooshProvider(),
   gapfilm: new GapfilmProvider(),
+  filimo: new FilimoProvider(),
 };
 
 export type ProviderId = keyof typeof providers;
@@ -21,6 +23,7 @@ export type ProviderId = keyof typeof providers;
 const providerCodes: Record<ProviderId, string> = {
   shabforoosh: "a",
   gapfilm: "b",
+  filimo: "c",
 };
 
 const codeProviders = Object.fromEntries(
@@ -76,7 +79,33 @@ const cachedHomeSections = {
     ["home-sections-gapfilm-v1"],
     { revalidate: 300 },
   ),
+  filimo: unstable_cache(
+    () => providers.filimo.getHomeSections(),
+    ["home-sections-filimo-v1"],
+    { revalidate: 300 },
+  ),
 };
+
+function interleaveProviderSections(sections: HomeSection[]): HomeSection[] {
+  const buckets = new Map<string, HomeSection[]>();
+  for (const section of sections) {
+    const key = section.provider || "mixed";
+    buckets.set(key, [...(buckets.get(key) ?? []), section]);
+  }
+  const result: HomeSection[] = [];
+  const providerOrder = Object.keys(providers);
+  const max = Math.max(0, ...[...buckets.values()].map((bucket) => bucket.length));
+  for (let index = 0; index < max; index += 1) {
+    for (const provider of providerOrder) {
+      const section = buckets.get(provider)?.[index];
+      if (section) result.push(section);
+    }
+  }
+  for (const [provider, bucket] of buckets) {
+    if (!providerOrder.includes(provider)) result.push(...bucket);
+  }
+  return result;
+}
 
 export async function searchAllProviders(
   query: string,
@@ -93,11 +122,11 @@ export async function getAllHomeSections(): Promise<HomeSection[]> {
   const sections = await Promise.allSettled(
     Object.values(cachedHomeSections).map((getSections) => getSections()),
   );
-  return withSectionHrefs(
+  return withSectionHrefs(interleaveProviderSections(
     sections.flatMap((result) =>
       result.status === "fulfilled" ? result.value : [],
     ),
-  );
+  ));
 }
 
 export async function getCatalogSections(
@@ -111,7 +140,7 @@ export async function getCatalogSections(
     ),
   );
 
-  return withSectionHrefs(
+  return withSectionHrefs(interleaveProviderSections(
     sections
       .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
       .map((section) => ({
@@ -119,7 +148,7 @@ export async function getCatalogSections(
         items: section.items.filter((item) => item.type === type),
       }))
       .filter((section) => section.items.length),
-  );
+  ));
 }
 
 function withSectionHrefs(sections: HomeSection[]): HomeSection[] {
