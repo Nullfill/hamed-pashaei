@@ -175,10 +175,12 @@ export function parseHomeSections(payload: unknown): HomeSection[] {
     });
     if (!items.length) return [];
     const sourceId = text(row.link_key) || text(row.list_tag_id) || text(row.id) || String(index);
+    const headerSliderItems = array(object(row.headersliders).data);
+    const isHeaderSlider = text(row.output_type) === "headerslider" || headerSliderItems.length > 0;
     return [{
       id: `${FILIMO_PROVIDER_ID}-${text(row.id) || sourceId}`,
       title: cleanTitle(text(row.link_text) || text(row.title), index ? "پیشنهادهای تازه" : "منتخب‌ها"),
-      type: row.output_type === "headerslider" || row.headersliders ? "slider" : "rail",
+      type: isHeaderSlider ? "slider" : "rail",
       items,
       provider: FILIMO_PROVIDER_ID,
       sourceId,
