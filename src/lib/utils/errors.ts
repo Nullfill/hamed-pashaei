@@ -16,8 +16,11 @@ export class ProviderConfigError extends AppError {
 }
 
 export class ProviderFetchError extends AppError {
-  constructor(message = "دریافت داده از منبع قدیمی ناموفق بود.") {
-    super(message, 502);
+  constructor(
+    message = "دریافت داده از منبع قدیمی ناموفق بود.",
+    status = 502,
+  ) {
+    super(message, status);
     this.name = "ProviderFetchError";
   }
 }

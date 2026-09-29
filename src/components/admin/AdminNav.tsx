@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users } from "lucide-react";
+import { Home, KeyRound, Network, Users } from "lucide-react";
 
 const links = [
+  { href: "/admin/api-clients", label: "API Clients", icon: KeyRound, exact: false },
   { href: "/admin", label: "داشبورد", icon: Home, exact: true },
   { href: "/admin/users", label: "کاربران", icon: Users, exact: false },
+  { href: "/admin/providers", label: "Providerها", icon: Network, exact: false },
 ];
 
 export function AdminNav() {

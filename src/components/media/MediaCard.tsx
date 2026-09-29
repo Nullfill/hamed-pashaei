@@ -22,7 +22,7 @@ export function MediaCard({ item }: { item: CardItem }) {
   return (
     <Link
       href={getInternalDetailsPath(item.type, item.id, item.provider)}
-      className="group relative block w-40 shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--surface)] transition-smooth hover:scale-105 hover:border-amber-500/40 hover:shadow-2xl hover:shadow-amber-500/10 sm:w-48"
+      className="group relative block w-[8.75rem] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--surface)] transition-smooth hover:scale-105 hover:border-amber-500/40 hover:shadow-2xl hover:shadow-amber-500/10 sm:w-48"
     >
       {/* Poster Image */}
       <div className="relative aspect-[2/3] overflow-hidden bg-[var(--surface-soft)]">
@@ -32,6 +32,7 @@ export function MediaCard({ item }: { item: CardItem }) {
               src={item.poster}
               alt={title}
               loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-smooth duration-500 group-hover:scale-110"
             />
             {/* Gradient overlay on hover */}

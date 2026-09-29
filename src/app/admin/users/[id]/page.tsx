@@ -34,6 +34,8 @@ function mediaHref(item: {
         ? "a"
         : item.provider === "filimo"
           ? "c"
+          : item.provider === "sheyda"
+            ? "d"
         : item.provider;
   const query =
     source && source !== "default" ? `?src=${encodeURIComponent(source)}` : "";

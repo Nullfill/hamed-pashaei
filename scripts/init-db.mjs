@@ -28,14 +28,18 @@ async function loadEnvFile(path) {
   }
 }
 
-await loadEnvFile(".env.local");
 await loadEnvFile(".env");
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL
+  ?.trim()
+  .replace(/^(?:"([\s\S]*)"|'([\s\S]*)')$/, (_, doubleQuoted, singleQuoted) =>
+    doubleQuoted ?? singleQuoted ?? "",
+  )
+  .trim();
 
 if (!databaseUrl) {
   console.error(
-    "DATABASE_URL is missing. Add your Neon connection string to .env or .env.local first.",
+    "DATABASE_URL is missing. Add your Neon connection string to .env first.",
   );
   process.exit(1);
 }
@@ -67,6 +71,48 @@ await sql`
 
 await sql`CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id)`;
 await sql`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions(expires_at)`;
+
+await sql`
+  CREATE TABLE IF NOT EXISTS mobile_sessions (
+    id TEXT PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('access', 'refresh')),
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    revoked_at TIMESTAMPTZ,
+    replaced_by TEXT
+  )
+`;
+
+await sql`CREATE INDEX IF NOT EXISTS mobile_sessions_user_id_idx ON mobile_sessions(user_id)`;
+await sql`CREATE INDEX IF NOT EXISTS mobile_sessions_expires_at_idx ON mobile_sessions(expires_at)`;
+await sql`CREATE INDEX IF NOT EXISTS mobile_sessions_active_idx ON mobile_sessions(token_hash) WHERE revoked_at IS NULL`;
+
+await sql`
+  CREATE TABLE IF NOT EXISTS api_clients (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    key_hash TEXT NOT NULL UNIQUE,
+    key_prefix TEXT NOT NULL,
+    scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVOKED')),
+    rate_limit INTEGER NOT NULL DEFAULT 120,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at TIMESTAMPTZ
+  )
+`;
+
+await sql`CREATE INDEX IF NOT EXISTS api_clients_status_idx ON api_clients(status)`;
+
+await sql`
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )
+`;
 
 await sql`
   CREATE TABLE IF NOT EXISTS watch_progress (

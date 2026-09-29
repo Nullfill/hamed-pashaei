@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import { neon } from "@neondatabase/serverless";
+import { getDatabaseUrl } from "@/lib/utils/env";
 import type {
   ActivityCounts,
   MediaActivityInput,
@@ -27,9 +28,8 @@ type ActivityData = {
   }>;
 };
 
-const sql = process.env.DATABASE_URL
-  ? neon(process.env.DATABASE_URL)
-  : undefined;
+const databaseUrl = getDatabaseUrl();
+const sql = databaseUrl ? neon(databaseUrl) : undefined;
 const storePath =
   process.env.ACTIVITY_STORE_PATH ||
   path.join(process.cwd(), "data", "activity.json");

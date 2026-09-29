@@ -6,10 +6,9 @@ MVP فارسی و راست چین برای نمایش و پخش فیلم و سر
 
 ```bash
 npm install
-cp .env.example .env.local
 ```
 
-در `.env.local` مقدارهای زیر را تنظیم کنید:
+تمام تنظیمات محلی پروژه در فایل واحد `.env` نگهداری می‌شوند. مقدارهای موردنیاز را در همان فایل تنظیم کنید:
 
 ```env
 SHABFOROOSH_BASE_URL=https://shabforoosh.ir
@@ -98,5 +97,5 @@ Provider فعلی در `src/lib/providers/shabforoosh` قرار دارد:
 ## نکات امنیتی
 
 - `SHABFOROOSH_COOKIE` را commit نکنید.
-- از `.env.local` برای توسعه محلی و Vercel Environment Variables برای production استفاده کنید.
+- از `.env` برای توسعه محلی و Environment Variables سرویس میزبان برای production استفاده کنید.
 - در صورت نیاز به proxy ویدئو، فشار bandwidth روی Vercel Free را قبل از فعال سازی بررسی کنید.

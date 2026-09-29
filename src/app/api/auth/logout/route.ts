@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { clearUserSession } from "@/lib/auth/session";
 
-export async function POST(request: Request) {
+export async function POST() {
   await clearUserSession();
-  return NextResponse.redirect(new URL("/", request.url));
+  return new NextResponse(null, {
+    status: 303,
+    headers: { Location: "/" },
+  });
 }

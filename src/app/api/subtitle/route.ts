@@ -12,6 +12,8 @@ function isAllowedSubtitleHost(hostname: string) {
     hostname === "acenteri.ir" ||
     hostname.endsWith(".shabforoosh.ir") ||
     hostname === "shabforoosh.ir" ||
+    hostname.endsWith(".sheyda.com") ||
+    hostname === "sheyda.com" ||
     hostname.endsWith(".majnoonbazar.ir") ||
     hostname === "majnoonbazar.ir" ||
     hostname.endsWith(".seo2024.ir") ||

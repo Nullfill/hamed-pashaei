@@ -4,6 +4,7 @@ const publicProviderCodes: Record<string, string> = {
   shabforoosh: "a",
   gapfilm: "b",
   filimo: "c",
+  sheyda: "d",
 };
 
 function publicProviderCode(provider?: string): string | undefined {

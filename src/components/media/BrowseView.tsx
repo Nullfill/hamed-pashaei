@@ -32,6 +32,7 @@ const sourceToProvider: Record<string, string> = {
   a: "shabforoosh",
   b: "gapfilm",
   c: "filimo",
+  d: "sheyda",
 };
 
 function splitValues(value?: string): string[] {
@@ -140,6 +141,8 @@ export function BrowseView({
         ? "a"
         : provider === "filimo"
           ? "c"
+          : provider === "sheyda"
+            ? "d"
           : provider;
   const [filters, setFilters] = useState<Filters>({
     source: initialSource,

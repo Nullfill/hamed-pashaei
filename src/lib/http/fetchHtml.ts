@@ -13,8 +13,8 @@ interface FetchHtmlOptions {
 export async function fetchHtml({ url, headers, timeoutMs = 15000, next }: FetchHtmlOptions): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const dispatcher = getProviderProxyDispatcher();
-  const proxyUrl = getProxyUrl();
+  const proxyUrl = await getProxyUrl();
+  const dispatcher = proxyUrl ? await getProviderProxyDispatcher() : undefined;
 
   try {
     const fetchOptions: RequestInit & { dispatcher?: Dispatcher; agent?: HttpsProxyAgent<string>; next?: NextFetchRequestConfig } = {

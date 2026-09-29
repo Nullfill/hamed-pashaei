@@ -3,7 +3,14 @@ import tseslint from "typescript-eslint";
 
 export default [
   {
-    ignores: [".next/**", "node_modules/**", "next-env.d.ts", "gapfilm-js/**"],
+    ignores: [
+      ".next/**",
+      ".vercel/**",
+      "node_modules/**",
+      "next-env.d.ts",
+      "gapfilm-js/**",
+      "public/sw.js",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

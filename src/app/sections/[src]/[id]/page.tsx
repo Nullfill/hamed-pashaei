@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MediaCard } from "@/components/media/MediaCard";
+import { SectionGrid } from "@/components/media/SectionGrid";
 import { getSection } from "@/lib/providers/registry";
 import { toPublicError } from "@/lib/utils/errors";
 
@@ -14,10 +14,11 @@ export default async function SectionPage({
 }) {
   const { src, id } = await params;
   const { t, page: rawPage } = await searchParams;
-  const page = Number(rawPage || 1);
+  const parsedPage = Number(rawPage || 1);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? Math.floor(parsedPage) : 1;
 
   try {
-    const section = await getSection(src, id, t, Number.isFinite(page) && page > 0 ? page : 1);
+    const section = await getSection(src, id, t, page);
 
     return (
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -26,11 +27,12 @@ export default async function SectionPage({
         </div>
 
         {section.items.length ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {section.items.map((item) => (
-              <MediaCard key={`${item.provider}-${item.type}-${item.id}`} item={item} />
-            ))}
-          </div>
+          <SectionGrid
+            initialSection={section}
+            providerCode={src}
+            sectionId={id}
+            sourceType={t}
+          />
         ) : (
           <div className="rounded-md border border-white/10 bg-[#15151f] p-8 text-center text-slate-400">{"\u0645\u0648\u0631\u062F\u06CC \u067E\u06CC\u062F\u0627 \u0646\u0634\u062F."}</div>
         )}
@@ -42,9 +44,11 @@ export default async function SectionPage({
             </Link>
           ) : null}
           <span className="rounded-md bg-white/7 px-4 py-2 text-sm text-slate-300">{"\u0635\u0641\u062D\u0647"} {page}</span>
-          <Link href={`/sections/${src}/${encodeURIComponent(id)}?${new URLSearchParams({ ...(t ? { t } : {}), page: String(page + 1) })}`} className="rounded-md border border-white/10 bg-white/7 px-4 py-2 text-sm">
-            {"\u0628\u0639\u062F\u06CC"}
-          </Link>
+          {section.hasMore !== false ? (
+            <Link href={`/sections/${src}/${encodeURIComponent(id)}?${new URLSearchParams({ ...(t ? { t } : {}), page: String(page + 1) })}`} className="rounded-md border border-white/10 bg-white/7 px-4 py-2 text-sm">
+              {"\u0628\u0639\u062F\u06CC"}
+            </Link>
+          ) : null}
         </div>
       </section>
     );

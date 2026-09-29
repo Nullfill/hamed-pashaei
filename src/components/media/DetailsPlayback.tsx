@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ListVideo, Play, PlayCircle, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ListVideo, PanelRight, Play, PlayCircle, X } from "lucide-react";
 import type { MediaDetails, SeriesEpisode } from "@/lib/providers/types";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 
@@ -25,7 +25,7 @@ function groupEpisodes(episodes?: SeriesEpisode[]) {
 }
 
 function hasDubbed(details: MediaDetails) {
-  return details.badges.some((badge) => /دوبله/.test(badge));
+  return details.badges.some((badge) => /دوبله|ط¯ظˆط¨ظ„ظ‡/i.test(badge));
 }
 
 async function lockLandscape() {
@@ -67,7 +67,7 @@ function FullscreenPlaybackOverlay({
   const [controlsVisible, setControlsVisible] = useState(true);
   const [seasonOpen, setSeasonOpen] = useState<string | undefined>(selection?.season || episodeGroups?.[0]?.[0]?.toString());
   const isSeries = details.type === "series";
-  const title = isSeries && selection ? `${details.titleFa || details.title} - فصل ${selection.season}، قسمت ${selection.episode}` : details.titleFa || details.title;
+  const displayTitle = isSeries && selection ? `${details.titleFa || details.title} · فصل ${selection.season}، قسمت ${selection.episode}` : details.titleFa || details.title;
   const chromeVisible = controlsVisible || episodeMenuOpen;
 
   useEffect(() => {
@@ -99,27 +99,33 @@ function FullscreenPlaybackOverlay({
   }, [onClose]);
 
   return (
-    <div ref={shellRef} className="fixed inset-0 z-[100] bg-black text-white">
+    <div ref={shellRef} dir="rtl" className="fixed inset-0 z-[100] isolate overflow-hidden bg-[#050608] text-white" role="dialog" aria-modal="true" aria-label="پخش ویدئو">
       <div
-        className={`absolute inset-x-0 top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-white/10 bg-black/85 px-3 backdrop-blur transition-opacity duration-300 sm:px-5 ${
-          chromeVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        className={`absolute inset-x-0 top-0 z-[70] flex min-h-20 items-center justify-between gap-4 bg-gradient-to-b from-black/90 via-black/55 to-transparent px-3 pb-5 pt-3 transition-opacity duration-300 sm:px-6 sm:pt-5 ${
+          chromeVisible ? "opacity-100" : "opacity-0"
         }`}
+        style={{ pointerEvents: chromeVisible ? "auto" : "none" }}
+        onPointerDown={(event) => event.stopPropagation()}
       >
-        <button type="button" onClick={onClose} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-white hover:bg-white/10">
-          <X className="size-5" aria-hidden />
-          بستن
-        </button>
-        <div className="min-w-0 flex-1 text-left sm:text-right">
-          <h2 className="truncate text-sm font-black sm:text-lg">{title}</h2>
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button type="button" onClick={onClose} className="group pointer-events-auto relative z-10 grid size-10 shrink-0 touch-manipulation place-items-center rounded-full border border-white/15 bg-black/35 text-white shadow-lg backdrop-blur-xl transition hover:border-white/30 hover:bg-white/15" aria-label="بستن پخش‌کننده">
+            <X className="size-5 transition-transform group-hover:rotate-90" aria-hidden />
+          </button>
+          <div className="min-w-0">
+            <p className="mb-0.5 text-[10px] font-bold tracking-[0.18em] text-white/45 sm:text-xs">در حال پخش</p>
+            <h2 className="max-w-[min(52vw,48rem)] truncate text-sm font-black text-white sm:text-lg">{displayTitle}</h2>
+          </div>
         </div>
         {isSeries && episodeGroups?.length ? (
           <button
             type="button"
             onClick={() => setEpisodeMenuOpen((value) => !value)}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold hover:bg-white/10"
+            className={`group pointer-events-auto relative z-10 inline-flex shrink-0 touch-manipulation items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold shadow-lg backdrop-blur-xl transition sm:px-4 sm:text-sm ${episodeMenuOpen ? "border-amber-400/70 bg-amber-400 text-black" : "border-white/20 bg-black/40 text-white hover:border-white/35 hover:bg-white/15"}`}
+            aria-expanded={episodeMenuOpen}
+            aria-controls="episode-drawer"
           >
-            <ListVideo className="size-4" aria-hidden />
-            فصل و قسمت
+            <PanelRight className="size-4 transition-transform group-hover:-translate-x-0.5" aria-hidden />
+            فصل‌ها و قسمت‌ها
           </button>
         ) : null}
       </div>
@@ -133,36 +139,40 @@ function FullscreenPlaybackOverlay({
           season={selection?.season}
           episode={selection?.episode}
           playbackId={selection?.playbackId}
-          title={title}
+          title={displayTitle}
           poster={details.poster}
           autoPlay
           fill
+          manageFullscreen={false}
           onControlsVisibilityChange={setControlsVisible}
         />
 
         {isSeries && episodeMenuOpen && episodeGroups?.length ? (
-          <div className="absolute bottom-24 right-3 z-30 max-h-[min(70vh,34rem)] w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-white/10 bg-[#181818]/95 shadow-2xl backdrop-blur">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <span className="font-black">انتخاب فصل و قسمت</span>
-              <button type="button" onClick={() => setEpisodeMenuOpen(false)} className="rounded-md p-1 text-slate-300 hover:bg-white/10 hover:text-white" aria-label="بستن">
+          <aside id="episode-drawer" className="player-episode-drawer" aria-label="فهرست فصل‌ها و قسمت‌ها" onPointerDown={(event) => event.stopPropagation()}>
+             <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-5">
+              <div>
+                <p className="text-base font-black">فصل‌ها و قسمت‌ها</p>
+                <p className="mt-0.5 text-[11px] text-white/45">قسمت موردنظر را برای ادامه انتخاب کنید</p>
+              </div>
+              <button type="button" onClick={() => setEpisodeMenuOpen(false)} className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:bg-white/10 hover:text-white" aria-label="بستن فهرست">
                 <X className="size-4" />
               </button>
             </div>
-            <div className="max-h-[calc(min(70vh,34rem)-3.5rem)] overflow-y-auto">
+             <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
               {episodeGroups.map(([season, episodes]) => {
                 const open = seasonOpen === String(season);
                 return (
-                  <div key={season} className="border-b border-white/5 last:border-b-0">
+                   <div key={season} className="mb-2 last:mb-0">
                     <button
                       type="button"
                       onClick={() => setSeasonOpen(open ? undefined : String(season))}
-                      className="flex w-full items-center justify-between px-4 py-3 text-right font-bold hover:bg-white/5"
+                       className={`flex w-full items-center justify-between rounded-xl border px-3 py-3 text-right text-sm font-bold transition ${open ? "border-amber-400/60 bg-amber-400 text-black shadow-[0_8px_24px_rgba(245,158,11,0.16)]" : "border-white/[0.08] bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white"}`}
                     >
                       <span>فصل {season}</span>
-                      <ChevronDown className={`size-4 transition-smooth ${open ? "rotate-180" : ""}`} />
+                      <ChevronDown className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
                     </button>
                     {open ? (
-                      <div className="grid gap-1 px-2 pb-2">
+                       <div className="grid gap-2 px-1 pt-2">
                         {episodes.map((episode) => {
                           const active = selection?.season === String(episode.season) && selection?.episode === String(episode.episode);
                           return (
@@ -170,15 +180,25 @@ function FullscreenPlaybackOverlay({
                               key={`${episode.season}-${episode.episode}`}
                               type="button"
                               onClick={() => {
+                                setSeasonOpen(String(episode.season));
                                 onSelectEpisode?.(episode);
                                 setEpisodeMenuOpen(false);
                               }}
-                              className={`rounded-lg px-3 py-2 text-right text-sm transition-smooth ${
-                                active ? "bg-amber-500 font-black text-black" : "text-slate-200 hover:bg-white/10"
+                              className={`group flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-right text-sm transition ${
+                                active ? "border-amber-400/70 bg-amber-400/[0.14] font-black text-amber-200" : "border-white/[0.07] bg-white/[0.025] text-slate-200 hover:border-white/20 hover:bg-white/[0.08]"
                               }`}
                             >
-                              قسمت {episode.episode}
-                              {episode.title ? <span className="block truncate text-xs opacity-75">{episode.title}</span> : null}
+                              <span className="relative h-12 w-20 shrink-0 overflow-hidden rounded-lg bg-white/[0.08]">
+                                {episode.poster ? <img src={episode.poster} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" /> : <span className="absolute inset-0 grid place-items-center"><PlayCircle className="size-5 text-white/35" /></span>}
+                                <span className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">{episode.episode}</span>
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block truncate">قسمت {episode.episode}</span>
+                                {episode.title ? <span className="mt-0.5 block truncate text-xs opacity-65">{episode.title}</span> : null}
+                              </span>
+                              <span className={`grid size-7 shrink-0 place-items-center rounded-full ${active ? "bg-amber-400 text-black" : "bg-white/[0.06] text-white/35 group-hover:text-white"}`}>
+                                {active ? <Check className="size-3.5" /> : <ChevronLeft className="size-3.5" />}
+                              </span>
                             </button>
                           );
                         })}
@@ -188,7 +208,7 @@ function FullscreenPlaybackOverlay({
                 );
               })}
             </div>
-          </div>
+          </aside>
         ) : null}
       </div>
     </div>
@@ -222,19 +242,49 @@ export function SeriesPlaybackPanel({ details }: { details: MediaDetails }) {
   const episodeGroups = useMemo(() => groupEpisodes(details.episodes), [details.episodes]);
   const [selection, setSelection] = useState<Selection>();
   const [open, setOpen] = useState(false);
+  const [activeSeason, setActiveSeason] = useState<number | undefined>(episodeGroups[0]?.[0]);
+  const [progress, setProgress] = useState<Record<string, { seconds: number; duration: number; completed: boolean }>>({});
   const episodeCount = details.episodes?.length ?? 0;
   const dubbed = hasDubbed(details) ? "1" : "0";
+  const activeEpisodes = episodeGroups.find(([season]) => season === activeSeason)?.[1] ?? [];
 
-  function playEpisode(episode: SeriesEpisode) {
-    void enterNativeFullscreen();
-    setSelection({
-      season: String(episode.season),
-      episode: String(episode.episode),
-      playbackId: episode.playbackId,
-      title: episode.title,
-    });
-    setOpen(true);
-  }
+  useEffect(() => {
+    setActiveSeason((current) => current && episodeGroups.some(([season]) => season === current) ? current : episodeGroups[0]?.[0]);
+  }, [episodeGroups]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProgress() {
+      const entries = await Promise.all(
+        (details.episodes ?? []).filter((episode) => episode.playbackId).map(async (episode) => {
+          const params = new URLSearchParams({
+            provider: details.provider,
+            type: details.type,
+            id: details.id,
+            season: String(episode.season),
+            episode: String(episode.episode),
+          });
+          try {
+            const response = await fetch(`/api/activity/progress?${params}`, { cache: "no-store" });
+            const payload = (await response.json()) as { progress?: { progressSeconds?: number; durationSeconds?: number; completed?: boolean } };
+            return [`${episode.season}:${episode.episode}`, {
+              seconds: payload.progress?.progressSeconds ?? 0,
+              duration: payload.progress?.durationSeconds ?? 0,
+              completed: Boolean(payload.progress?.completed),
+            }] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (!cancelled) {
+        const validEntries = entries.filter(Boolean) as Array<readonly [string, { seconds: number; duration: number; completed: boolean }] >;
+        setProgress(Object.fromEntries(validEntries));
+      }
+    }
+    void loadProgress();
+    return () => { cancelled = true; };
+  }, [details.id, details.provider, details.type, details.episodes]);
 
   if (!episodeGroups.length) {
     return (
@@ -244,51 +294,55 @@ export function SeriesPlaybackPanel({ details }: { details: MediaDetails }) {
     );
   }
 
+  const playEpisode = (episode: SeriesEpisode) => {
+    void enterNativeFullscreen();
+    setSelection({ season: String(episode.season), episode: String(episode.episode), playbackId: episode.playbackId, title: episode.title });
+    setOpen(true);
+  };
+
+  const formatStatus = (item?: { seconds: number; duration: number; completed: boolean }) => {
+    if (!item || (!item.seconds && !item.completed)) return "";
+    if (item.completed) return "دیده شده";
+    const remaining = Math.max(0, Math.ceil((item.duration - item.seconds) / 60));
+    return remaining ? `${remaining} دقیقه مانده` : "در حال پخش";
+  };
+
   return (
-    <div className="min-w-0 space-y-5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-2xl font-black text-white sm:text-3xl">
-            <ListVideo className="size-6 text-amber-400" aria-hidden />
-            فصل‌ها و قسمت‌ها
-          </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            {episodeGroups.length} فصل، {episodeCount} قسمت قابل پخش
-          </p>
-        </div>
+    <div className="min-w-0 overflow-hidden rounded-2xl bg-[#0b0c0e] text-white">
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.07] bg-[#0b0c0e]/85 px-3 py-3 backdrop-blur-[10px] sm:px-5">
+        <span className="text-xs text-slate-400">{episodeCount} قسمت</span>
+        <h2 className="flex items-center gap-2 text-sm font-bold"><ListVideo className="size-4 text-amber-300" aria-hidden /> فصل‌ها و قسمت‌ها</h2>
       </div>
-
-      {episodeGroups.map(([season, episodes]) => (
-        <div key={season} className="min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--surface)] shadow-xl shadow-black/10">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] bg-white/[0.03] px-4 py-3 sm:px-5">
-            <div>
-              <h3 className="text-lg font-black text-white">فصل {season}</h3>
-              <p className="text-sm text-slate-400">{episodes.length} قسمت</p>
-            </div>
-            <span className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
-              {episodes.reduce((sum, episode) => sum + episode.links.length, 0)} کیفیت
+      <div className="flex gap-5 overflow-x-auto border-b border-white/[0.06] px-3 sm:px-5" role="tablist">
+        {episodeGroups.map(([season, episodes]) => {
+          const active = season === activeSeason;
+          return <button key={season} type="button" role="tab" aria-selected={active} onClick={() => setActiveSeason(season)} className={`shrink-0 border-b-2 px-1 py-3 text-sm transition-colors ${active ? "border-amber-300 text-white" : "border-transparent text-slate-500 hover:text-slate-300"}`}>
+            فصل {season} <span className="mr-1 text-[10px] text-slate-500">{episodes.length}</span>
+          </button>;
+        })}
+      </div>
+      <div className="divide-y divide-white/[0.04] px-1 py-1 sm:px-3">
+        {activeEpisodes.map((episode) => {
+          const key = `${episode.season}:${episode.episode}`;
+          const item = progress[key];
+          const current = selection?.playbackId === episode.playbackId && open;
+          const completed = Boolean(item?.completed);
+          const percent = item?.duration ? Math.min(100, (item.seconds / item.duration) * 100) : 0;
+          return <button key={key} type="button" onClick={() => playEpisode(episode)} className={`group flex min-h-[72px] w-full items-center gap-3 rounded-xl px-2 py-2 text-right transition-colors duration-150 hover:bg-white/[0.06] sm:gap-4 sm:px-3 ${current ? "bg-amber-300/[0.07]" : ""}`}>
+            <span className={`relative h-14 w-[88px] shrink-0 overflow-hidden rounded-lg bg-white/[0.07] ${current ? "ring-1 ring-amber-300" : ""}`}>
+              {episode.poster ? <img src={episode.poster} alt="" className="h-full w-full object-cover" loading="lazy" /> : <span className="absolute inset-0 grid place-items-center"><PlayCircle className="size-6 text-slate-500" /></span>}
+              <span className="absolute right-1 top-1 rounded bg-black/70 px-1 text-[10px] text-slate-200">{episode.episode}</span>
+              <span className="absolute inset-0 grid place-items-center opacity-70 transition-opacity group-hover:opacity-100"><span className="grid size-7 place-items-center rounded-full bg-black/65"><Play className="mr-[-2px] size-3.5 fill-white" /></span></span>
+              {percent > 0 ? <span className="absolute inset-x-0 bottom-0 h-0.5 bg-black/60"><span className="block h-full bg-amber-300" style={{ width: `${percent}%` }} /></span> : null}
             </span>
-          </div>
-
-          <div className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-3 p-3 sm:p-4">
-            {episodes.map((episode) => (
-              <button
-                key={`${episode.season}-${episode.episode}`}
-                type="button"
-                onClick={() => playEpisode(episode)}
-                className="group min-w-0 rounded-xl border border-white/[0.08] bg-white/[0.04] p-3 text-right text-sm transition-smooth hover:border-amber-500/40 hover:bg-white/[0.08]"
-              >
-                <span className="mb-2 flex items-center justify-between gap-2">
-                  <span className="rounded-md bg-black/25 px-2 py-1 text-xs font-black text-amber-300">قسمت {episode.episode}</span>
-                  <PlayCircle className="size-4 shrink-0 text-slate-400 transition-colors group-hover:text-amber-300" aria-hidden />
-                </span>
-                <span className="block min-w-0 truncate font-bold text-white">{episode.title}</span>
-                <span className="mt-1 block text-xs text-slate-400">{episode.links.length} کیفیت</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-slate-100">{episode.title || `قسمت ${episode.episode}`}</span>
+              <span className="mt-1 block truncate text-xs text-slate-500">{episode.runtime || ""}{episode.runtime && formatStatus(item) ? " · " : ""}{formatStatus(item)}</span>
+            </span>
+            <span className="shrink-0 text-slate-600">{current ? <ChevronLeft className="size-4 text-amber-300" /> : completed ? <Check className="size-4 text-amber-300" /> : <ChevronLeft className="size-4" />}</span>
+          </button>;
+        })}
+      </div>
 
       {open && selection ? (
         <FullscreenPlaybackOverlay

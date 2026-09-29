@@ -3,11 +3,16 @@ node_modules/
 out/
 dist/
 .env
-.env*.local
 *.log
+*.tsbuildinfo
 vercel.json
 gapfilm-js/
 gapfilm-home.html
+proxy-*-test.*
+VERCEL-SETUP.md
+install.bat
+runflare-deploy.zip
 
 .vercel
 data/*.json
+*.zip

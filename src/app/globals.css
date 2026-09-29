@@ -205,3 +205,484 @@ video {
 .animate-shine {
   animation: shine 2s ease-in-out;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Video player chrome                                                        */
+/*                                                                            */
+/* These classes are intentionally framework-agnostic.  The player is used   */
+/* both in the watch page and in the native-fullscreen overlay, so keeping    */
+/* the glass surface/positioning rules here prevents the two implementations */
+/* from drifting apart.                                                       */
+/* -------------------------------------------------------------------------- */
+
+.player-shell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-width: 0;
+  background: #050607;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.player-shell:fullscreen {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.player-shell-fill {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Let a desktop settings card breathe outside a compact embedded player. */
+.player-shell-settings-open {
+  overflow: visible;
+}
+
+.player-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #050607;
+  object-fit: contain;
+}
+
+.player-chrome {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 0.5rem clamp(0.5rem, 2vw, 1.25rem) clamp(0.5rem, 2vw, 1.25rem);
+  background: linear-gradient(180deg, transparent 0%, rgba(3, 5, 7, 0.72) 38%, rgba(3, 5, 7, 0.94) 100%);
+  transition: opacity 220ms ease, visibility 220ms ease;
+}
+
+.player-control-bar,
+.player-glass-panel {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(145deg, rgba(24, 27, 31, 0.88), rgba(7, 9, 11, 0.82));
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  -webkit-backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: blur(22px) saturate(130%);
+}
+
+.player-control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 1.15rem;
+}
+
+.player-glass-panel {
+  border-radius: 1.25rem;
+}
+
+/* The trigger lives on the right side of the LTR control rail.  Use physical
+   insets here deliberately: the card itself is RTL, so `inset-inline-end`
+   would resolve to the *left* edge and recreate the overflow bug.  The id
+   selector also protects the current Tailwind markup before the optional
+   utility class is added. */
+.player-settings-panel,
+#video-player-settings {
+  position: absolute;
+  right: 0;
+  left: auto;
+  bottom: calc(100% + 0.75rem);
+  z-index: 50;
+  width: min(20rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1rem);
+  max-height: min(72vh, 36rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(145deg, rgba(20, 23, 27, 0.97), rgba(9, 11, 13, 0.96));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  transform-origin: bottom right;
+}
+
+.player-settings-panel::-webkit-scrollbar,
+#video-player-settings::-webkit-scrollbar {
+  width: 0.35rem;
+}
+
+.player-settings-panel::-webkit-scrollbar-track,
+#video-player-settings::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.player-settings-panel::-webkit-scrollbar-thumb,
+#video-player-settings::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.player-settings-panel::-webkit-scrollbar-thumb:hover,
+#video-player-settings::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.8);
+}
+
+.player-settings-option {
+  display: flex;
+  width: 100%;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  color: #e2e8f0;
+  text-align: start;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.player-settings-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.player-settings-option[data-active="true"],
+.player-settings-option[aria-selected="true"] {
+  color: #08090a;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.18);
+}
+
+.player-settings-option:active {
+  transform: scale(0.985);
+}
+
+/* Shared progress/volume range styling.  Keep direction LTR so keyboard and
+   pointer movement always map to time/volume consistently in an RTL page. */
+.player-range {
+  --player-range-fill: #f59e0b;
+  --player-range-track: rgba(255, 255, 255, 0.2);
+  display: block;
+  width: 100%;
+  height: 0.3rem;
+  direction: ltr;
+  cursor: pointer;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  outline: none;
+  background: var(--player-range-track);
+  accent-color: var(--player-range-fill);
+}
+
+.player-range:focus-visible {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28);
+}
+
+.player-range::-webkit-slider-runnable-track {
+  height: 0.3rem;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.player-range::-webkit-slider-thumb {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: -0.275rem;
+  appearance: none;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: var(--player-range-fill);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.player-range::-moz-range-track {
+  height: 0.3rem;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.player-range::-moz-range-progress {
+  height: 0.3rem;
+  border-radius: 999px;
+  background: var(--player-range-fill);
+}
+
+.player-range::-moz-range-thumb {
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: var(--player-range-fill);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.player-range:hover::-webkit-slider-thumb,
+.player-range:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.16), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.player-episode-drawer {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  right: clamp(0.75rem, 2vw, 1.5rem);
+  left: auto;
+  bottom: clamp(4.75rem, 10vh, 6.5rem);
+  z-index: 40;
+  width: min(27rem, calc(100vw - 1.5rem));
+  max-height: min(76vh, 42rem);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1.5rem;
+  background: rgba(14, 16, 18, 0.94);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.56);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  backdrop-filter: blur(24px) saturate(130%);
+}
+
+.player-subtitle {
+  position: absolute;
+  inset-inline: 1rem;
+  z-index: 20;
+  max-width: 60rem;
+  margin-inline: auto;
+  color: #fff;
+  font-size: clamp(1rem, 2.2vw, 1.6rem);
+  font-weight: 900;
+  line-height: 1.8;
+  text-align: center;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.95);
+}
+
+@media (min-width: 640px) {
+  .player-control-bar {
+    gap: 0.75rem;
+    padding-block: 0.625rem;
+    padding-inline: 0.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .player-shell {
+    border-radius: 0.9rem;
+  }
+
+  .player-shell-settings-open {
+    overflow: hidden;
+  }
+
+  .player-control-bar {
+    border-radius: 0.95rem;
+    padding: 0.35rem;
+  }
+
+  .player-settings-panel,
+  #video-player-settings {
+    position: fixed;
+    right: 0.75rem;
+    left: 0.75rem;
+    inset-block-start: auto;
+    inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - 6rem);
+    border-radius: 1.35rem;
+    transform-origin: bottom center;
+  }
+
+  .player-episode-drawer {
+    right: 0.75rem;
+    left: 0.75rem;
+    inset-block-start: 4.25rem;
+    inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);
+    width: auto;
+    max-height: none;
+    border-radius: 1.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-chrome,
+  .player-settings-option,
+  .player-range::-webkit-slider-thumb {
+    transition: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mobile app shell                                                           */
+/* -------------------------------------------------------------------------- */
+
+html {
+  overscroll-behavior-y: none;
+}
+
+body,
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+.app-main {
+  min-height: calc(100vh - 5rem);
+}
+
+.navigation-feedback {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.navigation-feedback-bar {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 3px;
+  transform-origin: right;
+  background: linear-gradient(90deg, var(--secondary), var(--accent), var(--accent-hover));
+  box-shadow: 0 0 16px var(--accent-glow);
+  animation: navigation-progress 1.25s cubic-bezier(0.18, 0.82, 0.38, 1) infinite;
+}
+
+.navigation-feedback-spinner {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+  animation: navigation-spin 0.7s linear infinite;
+}
+
+@keyframes navigation-progress {
+  0% { transform: scaleX(0.08); opacity: 0.5; }
+  45% { transform: scaleX(0.58); opacity: 1; }
+  100% { transform: scaleX(0.94); opacity: 0.8; }
+}
+
+@keyframes navigation-spin {
+  to { transform: rotate(360deg); }
+}
+
+.mobile-bottom-nav {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 80;
+  padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+.mobile-bottom-nav-inner {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.25rem;
+  width: min(100%, 34rem);
+  margin-inline: auto;
+  padding: 0.35rem;
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.35rem;
+  background: rgba(15, 16, 23, 0.86);
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+
+.mobile-bottom-nav-inner.has-install {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.mobile-nav-item {
+  display: flex;
+  min-height: 3.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  flex-direction: column;
+  border-radius: 1rem;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: color 180ms ease, background-color 180ms ease, transform 180ms ease;
+}
+
+.mobile-nav-item:active {
+  transform: scale(0.92);
+}
+
+.mobile-nav-item.is-active {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.13);
+}
+
+.mobile-nav-item.mobile-install-item {
+  color: #7dd3fc;
+}
+
+.loading-skeleton-hero {
+  min-height: clamp(20rem, 56vw, 32rem);
+  border-radius: 1.5rem;
+}
+
+@media (max-width: 1023px) {
+  .app-main {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  footer {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 639px) {
+  .mobile-bottom-nav {
+    padding-inline: 0.5rem;
+  }
+
+  .mobile-bottom-nav-inner {
+    border-radius: 1.15rem;
+  }
+
+  .mobile-nav-item {
+    min-height: 3rem;
+    font-size: 0.6rem;
+  }
+
+  .loading-skeleton-hero {
+    min-height: 19rem;
+    border-radius: 1.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-feedback-bar,
+  .navigation-feedback-spinner {
+    animation: none;
+  }
+}

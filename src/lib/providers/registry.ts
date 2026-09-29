@@ -11,19 +11,24 @@ import { unstable_cache } from "next/cache";
 import { GapfilmProvider } from "@/lib/providers/gapfilm";
 import { FilimoProvider } from "@/lib/providers/filimo";
 import { ShabforooshProvider } from "@/lib/providers/shabforoosh";
+import { SheydaProvider } from "@/lib/providers/sheyda";
 
 export const providers = {
   shabforoosh: new ShabforooshProvider(),
   gapfilm: new GapfilmProvider(),
   filimo: new FilimoProvider(),
+  sheyda: new SheydaProvider(),
 };
 
 export type ProviderId = keyof typeof providers;
+
+const publicProviderIds = ["shabforoosh", "gapfilm", "filimo"] as const satisfies readonly ProviderId[];
 
 const providerCodes: Record<ProviderId, string> = {
   shabforoosh: "a",
   gapfilm: "b",
   filimo: "c",
+  sheyda: "d",
 };
 
 const codeProviders = Object.fromEntries(
@@ -65,25 +70,84 @@ export function fromPublicProviderCode(
 }
 
 export function getAllProviders(): MediaProvider[] {
-  return Object.values(providers);
+  return publicProviderIds.map((providerId) => providers[providerId]);
 }
 
 const cachedHomeSections = {
   shabforoosh: unstable_cache(
     () => providers.shabforoosh.getHomeSections(),
-    ["home-sections-shabforoosh-v1"],
+    ["home-sections-shabforoosh-v4"],
     { revalidate: 300 },
   ),
   gapfilm: unstable_cache(
     () => providers.gapfilm.getHomeSections(),
-    ["home-sections-gapfilm-v1"],
+    ["home-sections-gapfilm-v3"],
     { revalidate: 300 },
   ),
   filimo: unstable_cache(
     () => providers.filimo.getHomeSections(),
-    ["home-sections-filimo-v1"],
+    ["home-sections-filimo-v3"],
     { revalidate: 300 },
   ),
+  sheyda: unstable_cache(
+    () => providers.sheyda.getHomeSections(),
+    ["home-sections-sheyda-v1"],
+    { revalidate: 300 },
+  ),
+};
+
+const cachedCatalogSections: Record<
+  ProviderId,
+  Record<BrowseInput["type"], () => Promise<HomeSection[]>>
+> = {
+  shabforoosh: {
+    movie: unstable_cache(
+      () => providers.shabforoosh.getCatalogSections?.("movie") ?? providers.shabforoosh.getHomeSections(),
+      ["catalog-sections-shabforoosh-movie-v3"],
+      { revalidate: 300 },
+    ),
+    series: unstable_cache(
+      () => providers.shabforoosh.getCatalogSections?.("series") ?? providers.shabforoosh.getHomeSections(),
+      ["catalog-sections-shabforoosh-series-v3"],
+      { revalidate: 300 },
+    ),
+  },
+  gapfilm: {
+    movie: unstable_cache(
+      () => providers.gapfilm.getCatalogSections?.("movie") ?? providers.gapfilm.getHomeSections(),
+      ["catalog-sections-gapfilm-movie-v3"],
+      { revalidate: 300 },
+    ),
+    series: unstable_cache(
+      () => providers.gapfilm.getCatalogSections?.("series") ?? providers.gapfilm.getHomeSections(),
+      ["catalog-sections-gapfilm-series-v3"],
+      { revalidate: 300 },
+    ),
+  },
+  filimo: {
+    movie: unstable_cache(
+      () => providers.filimo.getCatalogSections?.("movie") ?? providers.filimo.getHomeSections(),
+      ["catalog-sections-filimo-movie-v3"],
+      { revalidate: 300 },
+    ),
+    series: unstable_cache(
+      () => providers.filimo.getCatalogSections?.("series") ?? providers.filimo.getHomeSections(),
+      ["catalog-sections-filimo-series-v3"],
+      { revalidate: 300 },
+    ),
+  },
+  sheyda: {
+    movie: unstable_cache(
+      () => providers.sheyda.getCatalogSections("movie"),
+      ["catalog-sections-sheyda-movie-v1"],
+      { revalidate: 300 },
+    ),
+    series: unstable_cache(
+      () => providers.sheyda.getCatalogSections("series"),
+      ["catalog-sections-sheyda-series-v1"],
+      { revalidate: 300 },
+    ),
+  },
 };
 
 function interleaveProviderSections(sections: HomeSection[]): HomeSection[] {
@@ -93,7 +157,7 @@ function interleaveProviderSections(sections: HomeSection[]): HomeSection[] {
     buckets.set(key, [...(buckets.get(key) ?? []), section]);
   }
   const result: HomeSection[] = [];
-  const providerOrder = Object.keys(providers);
+  const providerOrder: readonly string[] = publicProviderIds;
   const max = Math.max(0, ...[...buckets.values()].map((bucket) => bucket.length));
   for (let index = 0; index < max; index += 1) {
     for (const provider of providerOrder) {
@@ -113,14 +177,23 @@ export async function searchAllProviders(
   const results = await Promise.allSettled(
     getAllProviders().map((provider) => provider.search(query)),
   );
-  return results.flatMap((result) =>
+  const buckets = results.map((result) =>
     result.status === "fulfilled" ? result.value : [],
   );
+  const interleaved: SearchResult[] = [];
+  const max = Math.max(0, ...buckets.map((bucket) => bucket.length));
+  for (let index = 0; index < max; index += 1) {
+    for (const bucket of buckets) {
+      const item = bucket[index];
+      if (item) interleaved.push(item);
+    }
+  }
+  return interleaved;
 }
 
 export async function getAllHomeSections(): Promise<HomeSection[]> {
   const sections = await Promise.allSettled(
-    Object.values(cachedHomeSections).map((getSections) => getSections()),
+    publicProviderIds.map((providerId) => cachedHomeSections[providerId]()),
   );
   return withSectionHrefs(interleaveProviderSections(
     sections.flatMap((result) =>
@@ -133,10 +206,8 @@ export async function getCatalogSections(
   type: BrowseInput["type"],
 ): Promise<HomeSection[]> {
   const sections = await Promise.allSettled(
-    getAllProviders().map((provider) =>
-      provider.getCatalogSections
-        ? provider.getCatalogSections(type)
-        : provider.getHomeSections(),
+    publicProviderIds.map((providerId) =>
+      cachedCatalogSections[providerId][type](),
     ),
   );
 
@@ -259,7 +330,7 @@ function matchesCategory(category: ProviderCategory, key: string): boolean {
   );
 }
 
-export async function getAllCategories(): Promise<ProviderCategory[]> {
+async function loadAllCategories(): Promise<ProviderCategory[]> {
   const results = await Promise.allSettled(
     getAllProviders().map(async (provider) => {
       if (!provider.getCategories) {
@@ -304,7 +375,17 @@ export async function getAllCategories(): Promise<ProviderCategory[]> {
   );
 }
 
-export async function getAllCountries(): Promise<ProviderCountry[]> {
+const cachedAllCategories = unstable_cache(
+  loadAllCategories,
+  ["provider-categories-v3"],
+  { revalidate: 3600 },
+);
+
+export async function getAllCategories(): Promise<ProviderCategory[]> {
+  return cachedAllCategories();
+}
+
+async function loadAllCountries(): Promise<ProviderCountry[]> {
   const results = await Promise.allSettled(
     getAllProviders().map(async (provider) => {
       if (!provider.getCountries) {
@@ -346,6 +427,16 @@ export async function getAllCountries(): Promise<ProviderCountry[]> {
   return [...merged.values()].sort((a, b) =>
     a.label.localeCompare(b.label, "fa"),
   );
+}
+
+const cachedAllCountries = unstable_cache(
+  loadAllCountries,
+  ["provider-countries-v3"],
+  { revalidate: 3600 },
+);
+
+export async function getAllCountries(): Promise<ProviderCountry[]> {
+  return cachedAllCountries();
 }
 
 function matchesCountry(country: ProviderCountry, key: string): boolean {
@@ -453,18 +544,18 @@ export async function browseByCategoryKeys(
 }
 
 export async function getKidsSections(): Promise<HomeSection[]> {
-  const gapfilmKids = await providers.gapfilm
-    .getKidsSections?.()
-    .catch(() => []);
-  if (gapfilmKids?.length) {
-    return gapfilmKids.map((section) => ({
-      ...section,
-      href:
-        section.provider && section.sourceId
-          ? `/sections/${toPublicProviderCode(section.provider)}/${encodeURIComponent(section.sourceId)}${section.sourceType ? `?t=${encodeURIComponent(section.sourceType)}` : ""}`
-          : section.href,
-    }));
-  }
+  const [gapfilmKids, filimoKids] = await Promise.all([
+    providers.gapfilm.getKidsSections?.().catch(() => []) ?? Promise.resolve([]),
+    providers.filimo.getKidsSections?.().catch(() => []) ?? Promise.resolve([]),
+  ]);
+  const providerSections = [...gapfilmKids, ...filimoKids].map((section) => ({
+    ...section,
+    href:
+      section.provider && section.sourceId
+        ? `/sections/${toPublicProviderCode(section.provider)}/${encodeURIComponent(section.sourceId)}${section.sourceType ? `?t=${encodeURIComponent(section.sourceType)}` : ""}`
+        : section.href,
+  }));
+  if (providerSections.length) return providerSections;
 
   const categories = await getAllCategories();
   const categoryKeys = categories

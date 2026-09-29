@@ -58,6 +58,21 @@ type GapfilmContentEnvelope = {
   };
 };
 
+function dedupeSections(sections: HomeSection[]): HomeSection[] {
+  const seen = new Set<string>();
+
+  return sections.filter((section) => {
+    const key = `${section.sourceId || section.id}:${section.sourceType || ""}:${section.title}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export class GapfilmProvider implements MediaProvider {
   readonly id = GAPFILM_PROVIDER_ID;
   readonly name = "Gapfilm";
@@ -83,34 +98,38 @@ export class GapfilmProvider implements MediaProvider {
   }
 
   async getHomeSections(): Promise<HomeSection[]> {
-    const payload = await this.getFirstPageSectionsPayload(1, 20, 20);
-
-    return parseHomeSections(payload);
+    const payloads = await this.getAllFirstPageSectionPayloads(1, 20, 20);
+    return dedupeSections(payloads.flatMap((payload) => parseHomeSections(payload)));
   }
 
   async getCatalogSections(type: "movie" | "series"): Promise<HomeSection[]> {
     const platformIds = type === "movie" ? [2, 3, 4] : [4, 1, 2];
     const results = await Promise.allSettled(
       platformIds.map((platformId) =>
-        this.getFirstPageSectionsPayload(platformId, 8, 8),
+        this.getAllFirstPageSectionPayloads(platformId, 20, 12),
       ),
     );
     const sections = results.flatMap((result) =>
-      result.status === "fulfilled" ? parseHomeSections(result.value) : [],
+      result.status === "fulfilled"
+        ? result.value.flatMap((payload) => parseHomeSections(payload))
+        : [],
     );
 
-    return sections
-      .map((section) => ({
-        ...section,
-        items: section.items.filter((item) => item.type === type),
-      }))
-      .filter((section) => section.items.length);
+    return dedupeSections(
+      sections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => item.type === type),
+        }))
+        .filter((section) => section.items.length),
+    );
   }
 
   private async getFirstPageSectionsPayload(
     platformId: number,
     pageSize: number,
     contentRows: number,
+    pageIndex = 0,
   ) {
     return this.client.requestJson<Parameters<typeof parseHomeSections>[0]>(
       "/api/v3.3/GetFirstPageByPlatform",
@@ -120,7 +139,7 @@ export class GapfilmProvider implements MediaProvider {
           PlatformType: 1,
           PageType: 1,
           PageSize: pageSize,
-          PageIndex: 0,
+          PageIndex: pageIndex,
           ContentRows: contentRows,
           ParentType: 2,
           ClientTags: "Web",
@@ -129,14 +148,43 @@ export class GapfilmProvider implements MediaProvider {
     );
   }
 
+  private async getAllFirstPageSectionPayloads(
+    platformId: number,
+    pageSize: number,
+    contentRows: number,
+  ) {
+    const first = await this.withRetry(() =>
+      this.getFirstPageSectionsPayload(platformId, pageSize, contentRows, 0),
+    );
+    const totalPages = Math.max(first.Result?.TotalPage ?? 1, 1);
+    if (totalPages === 1) return [first];
+
+    // Every page is part of the section registry. A rejected page must be
+    // retried (and ultimately surfaced) instead of being silently omitted.
+    const remaining = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, index) =>
+        this.withRetry(() =>
+          this.getFirstPageSectionsPayload(
+            platformId,
+            pageSize,
+            contentRows,
+            index + 1,
+          ),
+        ),
+      ),
+    );
+
+    return [first, ...remaining];
+  }
+
   async getKidsSections(): Promise<HomeSection[]> {
-    const firstPage = await this.getKidsSectionsPage(0);
+    const firstPage = await this.withRetry(() => this.getKidsSectionsPage(0));
     const totalPages = Math.max(firstPage.Result?.TotalPage ?? 1, 1);
     const otherPages =
       totalPages > 1
         ? await Promise.all(
             Array.from({ length: totalPages - 1 }, (_, index) =>
-              this.getKidsSectionsPage(index + 1),
+              this.withRetry(() => this.getKidsSectionsPage(index + 1)),
             ),
           )
         : [];
@@ -144,6 +192,24 @@ export class GapfilmProvider implements MediaProvider {
     return [firstPage, ...otherPages].flatMap((payload) =>
       parseHomeSections(payload),
     );
+  }
+
+  private async withRetry<T>(operation: () => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) {
+          await wait(250 * (attempt + 1));
+        }
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Gapfilm request failed.");
   }
 
   private async getKidsSectionsPage(pageIndex: number) {
@@ -366,22 +432,33 @@ export class GapfilmProvider implements MediaProvider {
 
   async getSection(input: { id: string; sourceType?: string; page?: number }) {
     const page = Math.max((input.page || 1) - 1, 0);
+    const pageSize = 20;
     const payload = await this.client.requestJson<{
       Status?: number;
       Message?: string;
       Result?: {
-        Sections?: Array<{ Name?: string; SectionTemplateId?: number }>;
+        Sections?: Array<{
+          Name?: string;
+          Title?: string;
+          SectionTemplateId?: number;
+        }>;
         Contents?: Parameters<typeof toMediaItem>[0][];
         TotalPage?: number;
       };
     }>("/api/v3.3/GetFirstPageByPlatformPaging", {
       params: {
         EntityId: input.id,
-        EntityType: input.sourceType || 1,
+        EntityType: /^\d+$/.test(input.sourceType || "")
+          ? Number(input.sourceType)
+          : 1,
         PlatformType: 1,
         AgeRangeId: 5,
-        PageSize: 25,
+        PageSize: pageSize,
         PageIndex: page,
+      },
+      headers: {
+        SourceEnvironment: "Website",
+        Referer: "https://www.gapfilm.ir/",
       },
     });
 
@@ -390,20 +467,27 @@ export class GapfilmProvider implements MediaProvider {
     }
 
     const section = payload.Result.Sections?.[0];
+    const totalPages = Math.max(payload.Result.TotalPage ?? 1, 1);
+    const items = (payload.Result.Contents ?? []).map(toMediaItem);
     return {
       id: `${this.id}-${input.id}`,
       title: (
         section?.Name ||
+        section?.Title ||
         "\u0641\u06CC\u0644\u0645 \u0648 \u0633\u0631\u06CC\u0627\u0644"
       )
         .replace(/گپ[\s‌-]*فیلم/g, "")
         .replace(/\s+/g, " ")
         .trim(),
       type: "rail" as const,
-      items: (payload.Result.Contents ?? []).map(toMediaItem),
+      items,
       provider: this.id,
       sourceId: input.id,
       sourceType: input.sourceType || "1",
+      page: page + 1,
+      perPage: pageSize,
+      totalPages,
+      hasMore: page + 1 < totalPages && items.length > 0,
     };
   }
 }

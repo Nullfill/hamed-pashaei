@@ -6,19 +6,39 @@ import { randomUUID } from "crypto";
 import {
   countDbUsers,
   createDbSession,
+  createDbMobileSession,
+  createDbApiClient,
   createDbUser,
   deleteDbSession,
   findDbSessionByTokenHash,
+  findDbMobileSessionByTokenHash,
+  findDbApiClientByKeyHash,
   findDbUserByEmail,
   findDbUserById,
   listDbUsers,
   updateDbUserAccess,
   updateDbUserPassword,
+  revokeDbMobileSession,
+  revokeDbMobileSessionsForUser,
+  listDbApiClients,
+  revokeDbApiClient,
+  touchDbApiClient,
 } from "@/lib/auth/dbStore";
-import type { AuthStoreData, PublicUser, StoredSession, StoredUser, UserRole, UserStatus } from "@/lib/auth/types";
+import type {
+  AuthStoreData,
+  ApiClientStatus,
+  MobileTokenKind,
+  PublicUser,
+  StoredApiClient,
+  StoredMobileSession,
+  StoredSession,
+  StoredUser,
+  UserRole,
+  UserStatus,
+} from "@/lib/auth/types";
 
 const storePath = process.env.AUTH_STORE_PATH || path.join(process.cwd(), "data", "auth.json");
-const emptyStore: AuthStoreData = { users: [], sessions: [] };
+const emptyStore: AuthStoreData = { users: [], sessions: [], mobileSessions: [], apiClients: [] };
 const useDatabaseStore = Boolean(process.env.DATABASE_URL);
 let writeQueue = Promise.resolve();
 
@@ -53,9 +73,11 @@ async function readStore(): Promise<AuthStoreData> {
     return {
       users: Array.isArray(parsed.users) ? parsed.users : [],
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+      mobileSessions: Array.isArray(parsed.mobileSessions) ? parsed.mobileSessions : [],
+      apiClients: Array.isArray(parsed.apiClients) ? parsed.apiClients : [],
     };
   } catch {
-    return { ...emptyStore };
+    return { users: [], sessions: [], mobileSessions: [], apiClients: [] };
   }
 }
 
@@ -245,6 +267,152 @@ export async function deleteSession(tokenHash: string): Promise<void> {
   return withWrite(async () => {
     const store = await readStore();
     store.sessions = store.sessions.filter((session) => session.tokenHash !== tokenHash);
+    await writeStore(store);
+  });
+}
+
+export async function createMobileSession(input: {
+  userId: string;
+  tokenHash: string;
+  kind: MobileTokenKind;
+  expiresAt: Date;
+  replacedBy?: string;
+}): Promise<StoredMobileSession> {
+  if (useDatabaseStore) {
+    return createDbMobileSession(input);
+  }
+
+  return withWrite(async () => {
+    const store = await readStore();
+    const session: StoredMobileSession = {
+      id: randomUUID(),
+      tokenHash: input.tokenHash,
+      userId: input.userId,
+      kind: input.kind,
+      expiresAt: input.expiresAt.toISOString(),
+      createdAt: new Date().toISOString(),
+      replacedBy: input.replacedBy,
+    };
+    store.mobileSessions = store.mobileSessions.filter(
+      (item) => new Date(item.expiresAt).getTime() > Date.now() && !item.revokedAt,
+    );
+    store.mobileSessions.push(session);
+    await writeStore(store);
+    return session;
+  });
+}
+
+export async function findMobileSessionByTokenHash(tokenHash: string): Promise<{
+  session: StoredMobileSession;
+  user: StoredUser;
+} | undefined> {
+  if (useDatabaseStore) {
+    return findDbMobileSessionByTokenHash(tokenHash);
+  }
+
+  const store = await readStore();
+  const session = store.mobileSessions.find(
+    (item) => item.tokenHash === tokenHash && !item.revokedAt && new Date(item.expiresAt).getTime() > Date.now(),
+  );
+  if (!session) return undefined;
+  const user = store.users.find((item) => item.id === session.userId);
+  if (!user || user.status !== "ACTIVE") return undefined;
+  return { session, user };
+}
+
+export async function revokeMobileSession(tokenHash: string, replacedBy?: string): Promise<void> {
+  if (useDatabaseStore) {
+    await revokeDbMobileSession(tokenHash, replacedBy);
+    return;
+  }
+
+  return withWrite(async () => {
+    const store = await readStore();
+    const item = store.mobileSessions.find((session) => session.tokenHash === tokenHash);
+    if (item) {
+      item.revokedAt = new Date().toISOString();
+      item.replacedBy = replacedBy;
+    }
+    await writeStore(store);
+  });
+}
+
+export async function revokeMobileSessionsForUser(userId: string): Promise<void> {
+  if (useDatabaseStore) {
+    await revokeDbMobileSessionsForUser(userId);
+    return;
+  }
+
+  return withWrite(async () => {
+    const store = await readStore();
+    const now = new Date().toISOString();
+    store.mobileSessions = store.mobileSessions.map((session) =>
+      session.userId === userId && !session.revokedAt ? { ...session, revokedAt: now } : session,
+    );
+    await writeStore(store);
+  });
+}
+
+export async function createApiClient(input: {
+  name: string;
+  keyHash: string;
+  keyPrefix: string;
+  scopes: string[];
+  rateLimit: number;
+  expiresAt?: Date;
+}): Promise<StoredApiClient> {
+  if (useDatabaseStore) return createDbApiClient(input);
+
+  return withWrite(async () => {
+    const store = await readStore();
+    const item: StoredApiClient = {
+      id: randomUUID(),
+      name: input.name.trim(),
+      keyHash: input.keyHash,
+      keyPrefix: input.keyPrefix,
+      scopes: input.scopes,
+      status: "ACTIVE",
+      rateLimit: input.rateLimit,
+      expiresAt: input.expiresAt?.toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    store.apiClients.push(item);
+    await writeStore(store);
+    return item;
+  });
+}
+
+export async function listApiClients(): Promise<StoredApiClient[]> {
+  if (useDatabaseStore) return listDbApiClients();
+  const store = await readStore();
+  return [...store.apiClients].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function revokeApiClient(id: string): Promise<void> {
+  if (useDatabaseStore) return revokeDbApiClient(id);
+  return withWrite(async () => {
+    const store = await readStore();
+    const item = store.apiClients.find((client) => client.id === id);
+    if (!item) throw new Error("API_CLIENT_NOT_FOUND");
+    item.status = "REVOKED" as ApiClientStatus;
+    await writeStore(store);
+  });
+}
+
+export async function findApiClientByKeyHash(keyHash: string): Promise<StoredApiClient | undefined> {
+  if (useDatabaseStore) return findDbApiClientByKeyHash(keyHash);
+  const store = await readStore();
+  const item = store.apiClients.find((client) => client.keyHash === keyHash && client.status === "ACTIVE");
+  if (!item || (item.expiresAt && new Date(item.expiresAt).getTime() <= Date.now())) return undefined;
+  return item;
+}
+
+export async function touchApiClient(id: string): Promise<void> {
+  if (useDatabaseStore) return touchDbApiClient(id);
+  return withWrite(async () => {
+    const store = await readStore();
+    const item = store.apiClients.find((client) => client.id === id);
+    if (item) item.lastUsedAt = new Date().toISOString();
     await writeStore(store);
   });
 }

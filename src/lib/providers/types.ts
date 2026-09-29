@@ -43,6 +43,8 @@ export interface SeriesEpisode {
   title: string;
   links: EpisodeLink[];
   playbackId?: string;
+  poster?: string;
+  runtime?: string;
 }
 
 export interface BrowseInput {
@@ -82,6 +84,11 @@ export interface HomeSection {
   provider?: string;
   sourceId?: string;
   sourceType?: string;
+  /** One-based page represented by this section response. */
+  page?: number;
+  perPage?: number;
+  totalPages?: number;
+  hasMore?: boolean;
 }
 
 export interface MediaItem {
@@ -152,10 +159,15 @@ export interface ProviderCountry {
 export interface PlaybackSource {
   quality?: string;
   src: string;
+  /** Optional same-origin fallback used when a provider rejects direct playback. */
+  proxySrc?: string;
   type?: string;
   subtitleFa?: string;
   subtitleEn?: string;
   dubbed?: boolean;
+  delivery?: "direct" | "proxy";
+  /** Headers that a native player may send when the provider requires them. */
+  requiredHeaders?: Record<string, string>;
 }
 
 export interface PlaybackData {
@@ -191,10 +203,13 @@ const assetUrlSchema = z.union([
 const playbackSourceSchema = z.object({
   quality: z.string().optional(),
   src: z.string().url(),
+  proxySrc: z.string().url().optional(),
   type: z.string().optional(),
   subtitleFa: z.string().url().optional(),
   subtitleEn: z.string().url().optional(),
   dubbed: z.boolean().optional(),
+  delivery: z.enum(["direct", "proxy"]).optional(),
+  requiredHeaders: z.record(z.string()).optional(),
 });
 
 export const searchResultSchema = z.object({
@@ -232,6 +247,10 @@ export const homeSectionSchema = z.object({
   provider: z.string().optional(),
   sourceId: z.string().optional(),
   sourceType: z.string().optional(),
+  page: z.number().int().positive().optional(),
+  perPage: z.number().int().nonnegative().optional(),
+  totalPages: z.number().int().nonnegative().optional(),
+  hasMore: z.boolean().optional(),
 });
 
 export const mediaDetailsSchema = z.object({
@@ -296,6 +315,8 @@ export const mediaDetailsSchema = z.object({
           }),
         ),
         playbackId: z.string().optional(),
+        poster: assetUrlSchema.optional(),
+        runtime: z.string().optional(),
       }),
     )
     .optional(),

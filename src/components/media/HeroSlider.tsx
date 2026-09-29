@@ -12,7 +12,7 @@ export function HeroSlider({ section }: { section?: HomeSection }) {
 
   const scroll = (direction: "left" | "right") => {
     if (!scrollContainerRef.current) return;
-    const scrollAmount = scrollContainerRef.current.clientWidth;
+    const scrollAmount = Math.max(280, scrollContainerRef.current.clientWidth * 0.92);
     const newPosition =
       direction === "right"
         ? scrollContainerRef.current.scrollLeft + scrollAmount
@@ -62,7 +62,7 @@ export function HeroSlider({ section }: { section?: HomeSection }) {
         {items.map((item, index) => (
           <article
             key={`${item.provider}-${item.type}-${item.id}`}
-            className="group relative min-h-[30rem] w-full min-w-full snap-start overflow-hidden rounded-3xl border border-white/[0.08] bg-[var(--surface)] shadow-2xl transition-smooth hover:border-amber-500/30 sm:min-h-[32rem]"
+            className="group relative min-h-[24rem] w-full min-w-full snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--surface)] shadow-2xl transition-smooth hover:border-amber-500/30 sm:min-h-[32rem] sm:rounded-3xl"
           >
             {/* Background Image */}
             {item.backdrop || item.poster ? (
@@ -70,6 +70,8 @@ export function HeroSlider({ section }: { section?: HomeSection }) {
                 <img
                   src={item.backdrop || item.poster}
                   alt={item.title}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  decoding="async"
                   className="h-full w-full object-cover transition-smooth duration-700 group-hover:scale-105"
                 />
                 {/* Vignette effect */}
@@ -82,7 +84,7 @@ export function HeroSlider({ section }: { section?: HomeSection }) {
             )}
 
             {/* Content */}
-            <div className="relative flex min-h-[30rem] flex-col justify-end gap-5 p-6 sm:min-h-[32rem] sm:p-10 lg:max-w-2xl lg:p-12">
+            <div className="relative flex min-h-[24rem] flex-col justify-end gap-4 p-4 sm:min-h-[32rem] sm:gap-5 sm:p-10 lg:max-w-2xl lg:p-12">
               {/* Badges & Rating */}
               <div className="flex flex-wrap items-center gap-2">
                 {item.rating ? (
@@ -103,7 +105,7 @@ export function HeroSlider({ section }: { section?: HomeSection }) {
 
               {/* Title */}
               <div>
-                <h1 className="max-w-xl text-4xl font-black leading-tight text-white drop-shadow-2xl sm:text-5xl lg:text-6xl">
+                <h1 className="max-w-xl text-3xl font-black leading-tight text-white drop-shadow-2xl sm:text-5xl lg:text-6xl">
                   {item.title}
                 </h1>
                 {item.titleEn && item.titleEn !== item.title ? (
@@ -122,14 +124,14 @@ export function HeroSlider({ section }: { section?: HomeSection }) {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href={getInternalDetailsPath(item.type, item.id, item.provider)}
-                  className="group/btn inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3.5 text-base font-bold text-black shadow-lg shadow-amber-500/30 transition-smooth hover:scale-105 hover:shadow-xl hover:shadow-amber-500/40"
+                  className="group/btn inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-sm font-bold text-black shadow-lg shadow-amber-500/30 transition-smooth hover:scale-105 hover:shadow-xl hover:shadow-amber-500/40 sm:gap-2.5 sm:px-6 sm:py-3.5 sm:text-base"
                 >
                   <Play className="size-5 fill-current transition-smooth group-hover/btn:scale-110" aria-hidden />
                   مشاهده و پخش
                 </Link>
                 <Link
                   href={getInternalDetailsPath(item.type, item.id, item.provider)}
-                  className="inline-flex items-center gap-2.5 rounded-xl border border-white/20 bg-white/10 px-6 py-3.5 text-base font-bold text-white backdrop-blur-md transition-smooth hover:scale-105 hover:bg-white/20"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-bold text-white backdrop-blur-md transition-smooth hover:scale-105 hover:bg-white/20 sm:gap-2.5 sm:px-6 sm:py-3.5 sm:text-base"
                 >
                   <Info className="size-5" aria-hidden />
                   اطلاعات بیشتر

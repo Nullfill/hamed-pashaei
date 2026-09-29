@@ -78,11 +78,19 @@ function makeSingleBanner(type: MediaType, sections: HomeSection[]): HomeSection
 }
 
 export function CatalogShowcase({ type, sections }: { type: MediaType; sections: HomeSection[] }) {
+  // The provider scans keep every section and the section page exposes every
+  // item through its paginated API. The catalogue landing page only needs a
+  // lightweight preview per rail; rendering thousands of cards here makes the
+  // initial HTML unnecessarily large while hiding the "view all" link.
+  const previewItemsPerRail = 12;
   const cleanSections = dedupeSections(
     sections
       .map((section) => ({
         ...section,
-        items: dedupeItems(section.items.filter((item) => item.type === type)),
+        items: dedupeItems(section.items.filter((item) => item.type === type)).slice(
+          0,
+          section.href ? previewItemsPerRail : undefined,
+        ),
       }))
       .filter((section) => section.items.length),
   );
@@ -90,7 +98,10 @@ export function CatalogShowcase({ type, sections }: { type: MediaType; sections:
   const rails = alternateProviderSections(cleanSections.filter((section) => section.type === "rail" && section.items.length > 1));
   const topRails = rails.slice(0, 3);
   const banner = makeSingleBanner(type, rails.slice(3));
-  const restRails = rails.slice(3, 9).filter((section) => section.items[0]?.id !== banner?.items[0]?.id);
+  // Providers can expose dozens of editorial rails. Do not silently truncate
+  // the catalogue after six rows; the section page itself handles item
+  // pagination/infinite loading.
+  const restRails = rails.slice(3).filter((section) => section.items[0]?.id !== banner?.items[0]?.id);
   const basePath = type === "movie" ? "/movies" : "/series";
   const label = type === "movie" ? "فیلم‌ها" : "سریال‌ها";
 

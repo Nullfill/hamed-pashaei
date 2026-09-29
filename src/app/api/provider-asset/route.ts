@@ -1,10 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-  getProviderProxyDispatcher,
-  getProxyUrl,
-} from "@/lib/http/providerProxy";
-import type { Dispatcher } from "undici";
-import { HttpsProxyAgent } from "https-proxy-agent";
 
 export const dynamic = "force-dynamic";
 
@@ -49,14 +43,8 @@ export async function GET(request: Request) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
-  const dispatcher = getProviderProxyDispatcher();
-  const proxyUrl = getProxyUrl();
-
   try {
-    const fetchOptions: RequestInit & {
-      dispatcher?: Dispatcher;
-      agent?: HttpsProxyAgent<string>;
-    } = {
+    const fetchOptions: RequestInit = {
       headers: {
         Accept: "image/avif,image/webp,image/png,image/jpeg,image/*,*/*;q=0.8",
         "Accept-Language": "fa-IR,fa;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -65,8 +53,6 @@ export async function GET(request: Request) {
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",
       },
       cache: "no-store",
-      dispatcher,
-      agent: proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined,
       signal: controller.signal,
     };
 

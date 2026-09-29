@@ -31,6 +31,8 @@ function mediaHref(item: {
         ? "a"
         : item.provider === "filimo"
           ? "c"
+          : item.provider === "sheyda"
+            ? "d"
         : item.provider;
   const params =
     provider && provider !== "default"

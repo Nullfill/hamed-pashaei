@@ -19,8 +19,8 @@ export class GapfilmClient {
 
   async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const url = new URL(path, this.apiBaseUrl);
-    const dispatcher = getProviderProxyDispatcher();
-    const proxyUrl = getProxyUrl();
+    const proxyUrl = await getProxyUrl();
+    const dispatcher = proxyUrl ? await getProviderProxyDispatcher() : undefined;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
 

@@ -85,8 +85,9 @@ type MapiSearchItem = {
 type MapiListPayload = {
   data?: MapiSearchItem[];
   page?: number;
-  total_page?: number;
-  per_page?: number;
+  /** MAPI uses total_page for the number of available pages. */
+  total_page?: number | string;
+  per_page?: number | string;
 };
 
 type MapiDetailsItem = MapiSearchItem & {
@@ -249,8 +250,9 @@ function normalizePeople(people?: MapiPerson[]): PersonCredit[] | undefined {
 function mapiItemToMediaItem(
   item: MapiSearchItem,
   baseUrl: string,
+  fallbackType?: MediaType,
 ): MediaItem | undefined {
-  const type = mapMApiType(item.type);
+  const type = mapMApiType(item.type) || fallbackType;
   const id = item.id ? String(item.id) : undefined;
   if (!type || !id) {
     return undefined;
@@ -282,6 +284,116 @@ function mapiItemToMediaItem(
     badges: readMApiBadges(item),
     sourcePath,
   };
+}
+
+type MapiHomeSection = {
+  key?: string;
+  title?: string;
+  view_all?: {
+    url?: string;
+    paramters?: Record<string, string | number | boolean | null | undefined>;
+    parameters?: Record<string, string | number | boolean | null | undefined>;
+  };
+  items?: MapiSearchItem[];
+};
+
+function homeSectionType(
+  key: string,
+  item: MapiSearchItem | undefined,
+): MediaType | undefined {
+  const normalized = key.toLowerCase();
+  if (normalized === "series") return "series";
+  if (normalized === "movies" || normalized === "cartoons") return "movie";
+
+  return mapMApiType(item?.type) ||
+    (normalizeText(item?.title).startsWith("سریال") ? "series" : "movie");
+}
+
+function sectionSourcePath(
+  section: MapiHomeSection,
+  baseUrl: string,
+): string | undefined {
+  const view = section.view_all;
+  if (!view?.url) return undefined;
+
+  try {
+    const url = new URL(view.url, baseUrl);
+    const params = view.paramters || view.parameters || {};
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== "") {
+        url.searchParams.set(key, String(value));
+      }
+    }
+
+    const key = normalizeText(section.key).toLowerCase();
+    const title = normalizeText(section.title);
+    if (key === "cartoons") {
+      url.pathname = "/wp-json/mapi/v1/post/cartoons";
+      url.search = "";
+    } else if (key === "suggestions") {
+      url.pathname = "/wp-json/mapi/v1/post/suggestions";
+      url.search = "";
+    } else if (
+      key === "series" &&
+      title.includes("جدیدترین")
+    ) {
+      // The upstream home payload currently advertises a stale genres=520
+      // parameter for this rail; the unfiltered series archive is canonical.
+      url.search = "";
+    }
+
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The current Shabforoosh home page is backed by this JSON endpoint.  It is
+ * more reliable than the WordPress HTML page (which can return 500) and its
+ * `view_all` URL is the canonical cursor for a complete section.
+ */
+export function parseMApiHomeSections(
+  jsonText: string,
+  baseUrl: string,
+): HomeSection[] {
+  const payload = JSON.parse(jsonText) as {
+    success?: boolean;
+    data?: { sections?: MapiHomeSection[] };
+  };
+
+  return (payload.data?.sections ?? []).flatMap((section, index) => {
+    const key = normalizeText(section.key);
+    const rawItems = section.items ?? [];
+    const items = rawItems
+      .map((item) =>
+        mapiItemToMediaItem(item, baseUrl, homeSectionType(key, item)),
+      )
+      .filter((item): item is MediaItem => Boolean(item));
+    if (!items.length) return [];
+
+    const sourcePath = sectionSourcePath(section, baseUrl);
+    const title = normalizeText(section.title) ||
+      `${key === "series" ? FA_SERIES : FA_MOVIE}`;
+    const isSnapshotOnly = /(?:^|\s)250(?:\s|$)/.test(title);
+
+    return [{
+      id: `${SHABFOROOSH_PROVIDER_ID}-mapi-${index}-${sectionIdFromTitle(title)}`,
+      title,
+      type: index === 0 ? "slider" : "rail",
+      items: dedupeMediaItems(items),
+      provider: SHABFOROOSH_PROVIDER_ID,
+      sourceId:
+        sourcePath && !isSnapshotOnly
+          ? encodeSectionPath(sourcePath)
+          : undefined,
+      sourceType: "mapi",
+      page: 1,
+      perPage: items.length,
+      totalPages: isSnapshotOnly ? 1 : undefined,
+      hasMore: Boolean(sourcePath) && !isSnapshotOnly,
+    } satisfies HomeSection];
+  });
 }
 
 function htmlMediaItem(input: {
@@ -349,12 +461,24 @@ export function parseMApiBrowse(
   const items = (payload.data ?? [])
     .map((item) => mapiItemToMediaItem(item, baseUrl))
     .filter((item): item is MediaItem => Boolean(item));
+  const page = Math.max(1, Number(payload.page || 1));
+  const perPage = Math.max(
+    1,
+    Number(payload.per_page || items.length || 12),
+  );
+  const declaredPages = Number(payload.total_page);
+  const totalPages =
+    Number.isFinite(declaredPages) && declaredPages > 0
+      ? Math.max(page, Math.floor(declaredPages))
+      : items.length < perPage
+        ? page
+        : page + 1;
 
   return {
     items: dedupeMediaItems(items),
-    page: Number(payload.page || 1),
-    totalPages: Number(payload.total_page || 1),
-    perPage: Number(payload.per_page || items.length || 12),
+    page,
+    totalPages,
+    perPage,
   };
 }
 
@@ -492,6 +616,9 @@ export function parseMApiDetails(
     baseUrl,
   );
   const trailerUrl = toAbsoluteUrl(data.trailer, baseUrl);
+  const episodes = type === "series"
+    ? parseSeriesEpisodes(data.player_links)?.map((episode) => ({ ...episode, poster: episode.poster || poster }))
+    : undefined;
 
   const parsed = mediaDetailsSchema.safeParse({
     provider: SHABFOROOSH_PROVIDER_ID,
@@ -518,8 +645,7 @@ export function parseMApiDetails(
     languages: normalizeTerms(data.languages),
     actors: normalizePeople(data.actors),
     directors: normalizePeople(data.directors),
-    episodes:
-      type === "series" ? parseSeriesEpisodes(data.player_links) : undefined,
+    episodes,
     related: related.length ? related : undefined,
     trailer: trailerUrl
       ? {

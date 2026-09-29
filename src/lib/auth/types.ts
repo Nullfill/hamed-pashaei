@@ -30,7 +30,37 @@ export interface StoredSession {
   createdAt: string;
 }
 
+export type MobileTokenKind = "access" | "refresh";
+
+export type ApiClientStatus = "ACTIVE" | "REVOKED";
+
+export interface StoredApiClient {
+  id: string;
+  name: string;
+  keyHash: string;
+  keyPrefix: string;
+  scopes: string[];
+  status: ApiClientStatus;
+  rateLimit: number;
+  expiresAt?: string;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+export interface StoredMobileSession {
+  id: string;
+  tokenHash: string;
+  userId: string;
+  kind: MobileTokenKind;
+  expiresAt: string;
+  createdAt: string;
+  revokedAt?: string;
+  replacedBy?: string;
+}
+
 export interface AuthStoreData {
   users: StoredUser[];
   sessions: StoredSession[];
+  mobileSessions: StoredMobileSession[];
+  apiClients: StoredApiClient[];
 }

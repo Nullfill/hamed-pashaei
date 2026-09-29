@@ -21,6 +21,7 @@ import {
   parseMApiBrowse,
   parseMApiDetails,
   parseMApiEpisodePlayback,
+  parseMApiHomeSections,
   parseMApiMoviePlayback,
   parseMApiSearchResults,
   parsePlayback,
@@ -33,25 +34,46 @@ function decodeSectionPath(id: string): string {
   return Buffer.from(id, "base64url").toString("utf8");
 }
 
+function encodeSectionPath(path: string): string {
+  return Buffer.from(path, "utf8").toString("base64url");
+}
+
 function normalizeCategoryLabel(label: string): string {
-  return label.replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/\s+/g, " ").trim();
+  return label
+    .replace(/ي/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/\u200c/g, " ")
+    .replace(/[-–—_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function normalizeTaxonomyLabel(label: string): string {
-  return normalizeCategoryLabel(label).replace(/-/g, " ").toLowerCase();
+  return normalizeCategoryLabel(label).toLowerCase();
 }
 
 const GENRE_IDS_BY_NAME: Record<string, { movieId: string; seriesId?: string }> = {
-  "\u0627\u0646\u06CC\u0645\u06CC\u0634\u0646": { movieId: "2", seriesId: "73" },
+  "\u0627\u0646\u06CC\u0645\u06CC\u0634\u0646": { movieId: "735", seriesId: "94519" },
+  "\u0627\u0646\u06CC\u0645\u0647": { movieId: "195387", seriesId: "195658" },
   "\u0627\u06A9\u0634\u0646": { movieId: "29", seriesId: "108" },
   "\u062F\u0631\u0627\u0645": { movieId: "13", seriesId: "74" },
-  "\u062A\u0631\u0633\u0646\u0627\u06A9": { movieId: "22", seriesId: "94" },
-  "\u062C\u0646\u06AF\u06CC": { movieId: "34", seriesId: "91" },
-  "\u06A9\u0645\u062F\u06CC": { movieId: "379", seriesId: "379" },
-  "\u0639\u0627\u0634\u0642\u0627\u0646\u0647": { movieId: "117181", seriesId: "117181" },
-  "\u0641\u0627\u0646\u062A\u0632\u06CC": { movieId: "178", seriesId: "178" },
+  "\u062A\u0631\u0633\u0646\u0627\u06A9": { movieId: "117202", seriesId: "169" },
+  "\u062C\u0646\u06AF\u06CC": { movieId: "117205", seriesId: "94" },
+  "\u06A9\u0645\u062F\u06CC": { movieId: "379", seriesId: "94526" },
+  "\u0639\u0627\u0634\u0642\u0627\u0646\u0647": { movieId: "117181", seriesId: "187" },
+  "\u0641\u0627\u0646\u062A\u0632\u06CC": { movieId: "129", seriesId: "178" },
   "\u0645\u0627\u062C\u0631\u0627\u062C\u0648\u06CC\u06CC": { movieId: "56", seriesId: "109" },
-  "\u0645\u0648\u0632\u06CC\u06A9\u0627\u0644": { movieId: "1044", seriesId: "1044" },
+  "\u0645\u0648\u0632\u06CC\u06A9\u0627\u0644": { movieId: "1044", seriesId: "152658" },
+  "\u0639\u0644\u0645\u06CC \u062a\u062e\u06CC\u0644\u06CC": { movieId: "520", seriesId: "110" },
+  "\u0647\u06CC\u062C\u0627\u0646 \u0627\u0646\u06AF\u06CC\u0632": { movieId: "468", seriesId: "75" },
+  "\u062C\u0646\u0627\u06CC\u06CC": { movieId: "21", seriesId: "73" },
+  "\u0631\u0627\u0632\u0622\u0644\u0648\u062F": { movieId: "117203", seriesId: "117" },
+  "\u062e\u0627\u0646\u0648\u0627\u062f\u06af\u06CC": { movieId: "772", seriesId: "94527" },
+  "\u0645\u0633\u062a\u0646\u062f": { movieId: "117204", seriesId: "86" },
+  "\u062a\u0627\u0631\u06cc\u062e\u06cc": { movieId: "47", seriesId: "93" },
+  "\u0648\u0631\u0632\u0634\u06cc": { movieId: "1138", seriesId: "117209" },
+  "\u0648\u0633\u062a\u0631\u0646": { movieId: "699", seriesId: "117210" },
+  "\u0628\u06cc\u0648\u06af\u0631\u0627\u0641\u06cc": { movieId: "46", seriesId: "289" },
 };
 
 function genreNameFromPath(path: string): string | undefined {
@@ -108,19 +130,131 @@ export class ShabforooshProvider implements MediaProvider {
   }
 
   async getHomeSections(): Promise<HomeSection[]> {
-    const html = await this.client.get("/");
-    return parseHomeSections(html, this.client.baseUrl);
+    try {
+      const jsonText = await this.client.get("/wp-json/mapi/v1/post/all");
+      const sections = parseMApiHomeSections(jsonText, this.client.baseUrl);
+      if (sections.length) {
+        const suggestionsSection = sections.find((section) =>
+          /پیشنهاد/.test(section.title),
+        );
+        if (suggestionsSection) {
+          try {
+            const suggestions = parseMApiBrowse(
+              await this.client.get(
+                "/wp-json/mapi/v1/post/suggestions?page=1&per_page=20",
+              ),
+              this.client.baseUrl,
+            );
+            const typeById = new Map(
+              suggestions.items.map((item) => [item.id, item.type]),
+            );
+            suggestionsSection.items = suggestionsSection.items.map((item) => ({
+              ...item,
+              type: typeById.get(item.id) || item.type,
+            }));
+          } catch {
+            // The home snapshot remains usable if the enrichment request fails.
+          }
+        }
+        if (!sections.some((section) => /کارتون/.test(section.title))) {
+          try {
+            const cartoons = parseMApiBrowse(
+              await this.client.get(
+                "/wp-json/mapi/v1/post/cartoons?page=1&per_page=20",
+              ),
+              this.client.baseUrl,
+            );
+            if (cartoons.items.length) {
+              sections.push({
+                id: `${this.id}-mapi-cartoons`,
+                title: "کارتون",
+                type: "rail",
+                items: cartoons.items,
+                provider: this.id,
+                sourceId: encodeSectionPath(
+                  "/wp-json/mapi/v1/post/cartoons",
+                ),
+                sourceType: "mapi",
+                page: cartoons.page,
+                perPage: cartoons.perPage,
+                totalPages: cartoons.totalPages,
+                hasMore:
+                  cartoons.page < cartoons.totalPages &&
+                  cartoons.items.length > 0,
+              });
+            }
+          } catch {
+            // The main /post/all response remains usable without cartoons.
+          }
+        }
+        return sections;
+      }
+    } catch {
+      // The JSON endpoint is the primary source, but keep the legacy HTML
+      // parser as a compatibility fallback for older deployments.
+    }
+
+    try {
+      const html = await this.client.get("/");
+      return parseHomeSections(html, this.client.baseUrl);
+    } catch {
+      return [];
+    }
   }
 
   async getCatalogSections(type: "movie" | "series"): Promise<HomeSection[]> {
     const sections = await this.getHomeSections();
 
-    return sections
+    const filtered = sections
       .map((section) => ({
         ...section,
         items: section.items.filter((item) => item.type === type),
       }))
       .filter((section) => section.items.length);
+
+    if (filtered.length) {
+      return filtered;
+    }
+
+    // Some older mirrors do not expose /post/all.  Build a small, stable
+    // catalogue from the provider's genre ids as a last-resort fallback.
+    const ids = await this.getGenreIdsFromMApi().catch(() => new Map());
+    const entries = new Map<string, string>();
+    for (const [label, known] of Object.entries(GENRE_IDS_BY_NAME)) {
+      const id = type === "series" ? known.seriesId : known.movieId;
+      if (id) entries.set(label, id);
+    }
+    for (const [label, value] of ids) {
+      const id = type === "series" ? value.seriesId : value.movieId;
+      if (id) entries.set(label, id);
+    }
+
+    const results = await Promise.allSettled(
+      [...entries].map(async ([label, genres]) => {
+        const result = await this.browse({ type, genres, page: 1 });
+        return {
+          id: `${this.id}-genre-${type}-${genres}`,
+          title: `${type === "movie" ? "فیلم‌های" : "سریال‌های"} ${label}`,
+          type: "rail" as const,
+          items: result.items,
+          provider: this.id,
+          sourceId: encodeSectionPath(
+            `/wp-json/mapi/v1/post/${type === "movie" ? "movies" : "series"}?genres=${encodeURIComponent(genres)}`,
+          ),
+          sourceType: "mapi",
+          page: result.page,
+          perPage: result.perPage,
+          totalPages: result.totalPages,
+          hasMore: result.page < result.totalPages && result.items.length > 0,
+        } satisfies HomeSection;
+      }),
+    );
+
+    return results.flatMap((result) =>
+      result.status === "fulfilled" && result.value.items.length
+        ? [result.value]
+        : [],
+    );
   }
 
   async getCategories(): Promise<ProviderCategory[]> {
@@ -129,32 +263,25 @@ export class ShabforooshProvider implements MediaProvider {
   }
 
   private async fetchCategories(): Promise<ProviderCategory[]> {
-    const text = await this.client.get("/wp-json/wp/v2/categories?per_page=100");
-    const payload = JSON.parse(text) as { data?: Array<{ id?: number; name?: string; count?: number }> } | Array<{ id?: number; name?: string; count?: number }>;
-    const categories = Array.isArray(payload) ? payload : payload.data ?? [];
-
-    const wpCategories = categories
-      .filter((category) => category.id && category.name && (category.count ?? 0) > 0)
-      .map((category) => {
-        const label = normalizeCategoryLabel(category.name ?? "");
-        return {
-          provider: this.id,
-          key: encodeURIComponent(label.toLowerCase().replace(/\s+/g, "-")),
-          label,
-          movieId: String(category.id),
-          seriesId: String(category.id),
-        };
+    const byLabel = new Map<string, ProviderCategory>();
+    const add = (label: string, ids: { movieId?: string; seriesId?: string }) => {
+      const normalized = normalizeTaxonomyLabel(label);
+      if (!normalized || (!ids.movieId && !ids.seriesId)) return;
+      const current = byLabel.get(normalized);
+      byLabel.set(normalized, {
+        provider: this.id,
+        key: encodeURIComponent(label.toLowerCase().replace(/\s+/g, "-")),
+        label: current?.label || label,
+        movieId: current?.movieId || ids.movieId,
+        seriesId: current?.seriesId || ids.seriesId,
       });
+    };
 
-    const knownGenres = Object.entries(GENRE_IDS_BY_NAME).map(([label, ids]) => ({
-      provider: this.id,
-      key: encodeURIComponent(label.toLowerCase().replace(/\s+/g, "-")),
-      label,
-      movieId: ids.movieId,
-      seriesId: ids.seriesId,
-    }));
+    for (const [label, ids] of Object.entries(GENRE_IDS_BY_NAME)) {
+      add(label, ids);
+    }
 
-    return [...knownGenres, ...wpCategories];
+    return [...byLabel.values()];
   }
 
   async getCountries() {
@@ -305,9 +432,54 @@ export class ShabforooshProvider implements MediaProvider {
     return { sources: [] };
   }
 
+  private async getMApiSection(
+    url: URL,
+    input: { id: string; sourceType?: string; page?: number },
+  ): Promise<HomeSection | undefined> {
+    const match = url.pathname.match(/^\/wp-json\/mapi\/v1\/post\/([^/]+)\/?$/i);
+    const endpoint = match?.[1]?.toLowerCase();
+    if (!endpoint || !["movies", "series", "cartoons", "suggestions"].includes(endpoint)) {
+      return undefined;
+    }
+
+    const page = Math.max(1, input.page || 1);
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("per_page", "20");
+    const result = parseMApiBrowse(
+      await this.client.get(url.toString()),
+      this.client.baseUrl,
+    );
+    const title =
+      endpoint === "series"
+        ? "سریال‌ها"
+        : endpoint === "cartoons"
+          ? "کارتون‌ها"
+          : endpoint === "movies"
+          ? "فیلم‌ها"
+          : "پیشنهادها";
+
+    return {
+      id: `${this.id}-${input.id}`,
+      title,
+      type: "rail",
+      provider: this.id,
+      sourceId: input.id,
+      sourceType: input.sourceType || "mapi",
+      items: result.items,
+      page: result.page,
+      perPage: result.perPage,
+      totalPages: result.totalPages,
+      hasMore: result.page < result.totalPages && result.items.length > 0,
+    };
+  }
+
   async getSection(input: { id: string; sourceType?: string; page?: number }): Promise<HomeSection> {
     const path = decodeSectionPath(input.id);
     const url = new URL(path, this.client.baseUrl);
+    const mapiSection = await this.getMApiSection(url, input);
+    if (mapiSection) {
+      return mapiSection;
+    }
     const genreName = genreNameFromPath(url.pathname);
 
     if (genreName) {
@@ -325,6 +497,10 @@ export class ShabforooshProvider implements MediaProvider {
           sourceId: input.id,
           sourceType: input.sourceType || "genre-movie",
           items: result.items,
+          page: result.page,
+          perPage: result.perPage,
+          totalPages: result.totalPages,
+          hasMore: result.page < result.totalPages && result.items.length > 0,
         };
       }
     }
@@ -344,6 +520,10 @@ export class ShabforooshProvider implements MediaProvider {
           sourceId: input.id,
           sourceType: input.sourceType || "country-movie",
           items: result.items,
+          page: result.page,
+          perPage: result.perPage,
+          totalPages: result.totalPages,
+          hasMore: result.page < result.totalPages && result.items.length > 0,
         };
       }
     }
@@ -361,6 +541,10 @@ export class ShabforooshProvider implements MediaProvider {
         sourceId: input.id,
         sourceType: "path",
         items: result.items,
+        page: result.page,
+        perPage: result.perPage,
+        totalPages: result.totalPages,
+        hasMore: result.page < result.totalPages && result.items.length > 0,
       };
     }
 
@@ -425,7 +609,9 @@ export class ShabforooshProvider implements MediaProvider {
       return sampledIds;
     }
 
-    const known = GENRE_IDS_BY_NAME[name];
+    const known = Object.entries(GENRE_IDS_BY_NAME).find(
+      ([label]) => normalizeTaxonomyLabel(label) === normalizedName,
+    )?.[1];
     if (known) {
       return known;
     }

@@ -12,7 +12,7 @@ export function SectionRail({ section }: { section: HomeSection }) {
 
   const scroll = (direction: "left" | "right") => {
     if (!scrollContainerRef.current) return;
-    const scrollAmount = 800;
+    const scrollAmount = Math.min(800, Math.max(280, scrollContainerRef.current.clientWidth * 0.85));
     const newPosition =
       direction === "right"
         ? scrollContainerRef.current.scrollLeft + scrollAmount
@@ -26,9 +26,9 @@ export function SectionRail({ section }: { section: HomeSection }) {
   if (section.items.length === 1) {
     const item = section.items[0];
     return (
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">{section.title}</h2>
+      <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div className="mb-3 flex items-center justify-between sm:mb-5">
+          <h2 className="text-lg font-bold text-white sm:text-2xl">{section.title}</h2>
         </div>
         <Link
           href={getInternalDetailsPath(item.type, item.id, item.provider)}
@@ -54,18 +54,18 @@ export function SectionRail({ section }: { section: HomeSection }) {
   }
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-5 flex items-center justify-between">
+    <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mb-3 flex items-center justify-between sm:mb-5">
         {section.href ? (
           <Link
             href={section.href}
-            className="group flex items-center gap-2 text-2xl font-bold text-white transition-smooth hover:text-amber-400"
+            className="group flex items-center gap-2 text-lg font-bold text-white transition-smooth hover:text-amber-400 sm:text-2xl"
           >
             {section.title}
             <ChevronLeft className="size-6 transition-smooth group-hover:-translate-x-1" aria-hidden />
           </Link>
         ) : (
-          <h2 className="text-2xl font-bold text-white">{section.title}</h2>
+          <h2 className="text-lg font-bold text-white sm:text-2xl">{section.title}</h2>
         )}
 
         {/* Navigation Buttons */}
@@ -89,7 +89,7 @@ export function SectionRail({ section }: { section: HomeSection }) {
 
       <div
         ref={scrollContainerRef}
-        className="scrollbar-none -mx-2 flex gap-4 overflow-x-auto scroll-smooth px-2 pb-4"
+        className="scrollbar-none -mx-2 flex snap-x gap-3 overflow-x-auto scroll-smooth px-2 pb-3 sm:gap-4 sm:pb-4"
       >
         {section.items.map((item) => (
           <MediaCard key={`${item.provider}-${item.type}-${item.id}`} item={item} />

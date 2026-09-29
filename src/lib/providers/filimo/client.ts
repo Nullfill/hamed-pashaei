@@ -1,24 +1,29 @@
 import "server-only";
 
-import { getProviderProxyDispatcher, getProxyUrl } from "@/lib/http/providerProxy";
+import { getProxyUrl } from "@/lib/http/providerProxy";
 import { ProviderConfigError, ProviderFetchError } from "@/lib/utils/errors";
-import { HttpsProxyAgent } from "https-proxy-agent";
-import type { Dispatcher } from "undici";
+import {
+  getFilimoRequestTransport,
+  normalizeFilimoAuthToken,
+  requestThroughHttpsProxy,
+} from "./requestPolicy";
 
 type RequestOptions = {
   params?: Record<string, string | number | boolean | undefined | null>;
   auth?: boolean;
   simple?: boolean;
+  proxy?: boolean;
   timeoutMs?: number;
 };
 
 export class FilimoClient {
-  readonly siteBaseUrl = process.env.FILIMO_BASE_URL?.trim() || "https://www.filimo.com";
+  readonly siteBaseUrl =
+    process.env.FILIMO_BASE_URL?.trim() || "https://www.filimo.com";
   readonly apiBaseUrl = `${this.siteBaseUrl.replace(/\/$/, "")}/api/fa/v1/`;
 
   async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const url = new URL(path.replace(/^\//, ""), this.apiBaseUrl);
-    const token = process.env.FILIMO_AUTH_TOKEN?.trim().replace(/^Bearer\s+/i, "");
+    const token = normalizeFilimoAuthToken(process.env.FILIMO_AUTH_TOKEN);
     if (options.auth && !token) {
       throw new ProviderConfigError("توکن پخش فیلیمو تنظیم نشده است.");
     }
@@ -30,10 +35,15 @@ export class FilimoClient {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
-    const proxyUrl = getProxyUrl();
-    const dispatcher = getProviderProxyDispatcher();
-    const headers: HeadersInit = {
+    const timeout = setTimeout(
+      () => controller.abort(),
+      options.timeoutMs ?? 15000,
+    );
+    const configuredProxyUrl = await getProxyUrl();
+    const transport = getFilimoRequestTransport(options, configuredProxyUrl);
+    const proxyUrl =
+      transport === "https-proxy-agent" ? configuredProxyUrl : undefined;
+    const headers: Record<string, string> = {
       Accept: "application/json",
       "Accept-Language": "en-US,en;q=0.9",
       Referer: `${this.siteBaseUrl}/`,
@@ -48,28 +58,46 @@ export class FilimoClient {
     if (token && options.auth) headers.authorization = `Bearer ${token}`;
 
     try {
-      const response = await fetch(url, {
-        headers,
-        cache: "no-store",
-        dispatcher,
-        agent: proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined,
-        signal: controller.signal,
-      } as RequestInit & {
-        dispatcher?: Dispatcher;
-        agent?: HttpsProxyAgent<string>;
-      });
+      const response = proxyUrl
+        ? await requestThroughHttpsProxy(
+            url,
+            headers,
+            proxyUrl,
+            controller.signal,
+          )
+        : await (async () => {
+            const directResponse = await fetch(url, {
+              headers,
+              cache: "no-store",
+              signal: controller.signal,
+            });
+            return {
+              status: directResponse.status,
+              body: await directResponse.text(),
+            };
+          })();
 
-      if (!response.ok) {
-        throw new ProviderFetchError(
+      if (response.status < 200 || response.status >= 300) {
+        const status =
           response.status === 401 || response.status === 403
-            ? "دسترسی پخش فیلیمو منقضی یا نامعتبر است."
-            : `درخواست فیلیمو ناموفق بود: ${response.status}`,
+            ? response.status
+            : 502;
+        throw new ProviderFetchError(
+          response.status === 401
+            ? "احراز هویت پخش فیلیمو نامعتبر یا منقضی است."
+            : response.status === 403
+              ? "دسترسی پخش فیلیمو از سمت سرویس رد شد؛ توکن یا مسیر شبکه را بررسی کنید."
+              : `درخواست فیلیمو ناموفق بود: ${response.status}`,
+          status,
         );
       }
 
-      return (await response.json()) as T;
+      return JSON.parse(response.body) as T;
     } catch (error) {
-      if (error instanceof ProviderConfigError || error instanceof ProviderFetchError) {
+      if (
+        error instanceof ProviderConfigError ||
+        error instanceof ProviderFetchError
+      ) {
         throw error;
       }
       throw new ProviderFetchError("دریافت داده از فیلیمو ناموفق بود.");

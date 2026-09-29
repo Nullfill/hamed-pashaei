@@ -90,9 +90,11 @@ type ApiAttachment = {
 };
 
 type HomeApiResult = {
+  TotalPage?: number;
   Sections?: Array<{
     SectionId?: number;
     Type?: number;
+    Name?: string;
     Title?: string;
     SectionTemplateId?: number;
     ContentSummaryRows?: ApiContent[];
@@ -464,6 +466,8 @@ export function parseEpisodes(
       episode: attachment.EpisodeNo ?? 1,
       title: attachment.Title || `Episode ${attachment.EpisodeNo ?? 1}`,
       links: parseAttachmentLinks(attachment),
+      poster: attachment.Thumbnail,
+      runtime: attachment.DurationSeconds ? `${Math.ceil(attachment.DurationSeconds / 60)} دقیقه` : undefined,
     }))
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
 }
