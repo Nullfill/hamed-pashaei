@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildGatewayUrl, getGatewaySecret } from "@/lib/http/providerProxy";
+import { buildGatewayUrl, getGatewaySecret, getGatewayUrl } from "@/lib/http/providerProxy";
 
 export const dynamic = "force-dynamic";
 
