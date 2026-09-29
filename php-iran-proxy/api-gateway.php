@@ -91,9 +91,10 @@ $body = file_get_contents('php://input');
 $requestHeaders = [];
 $incomingHeaders = getallheaders();
 
-// هدرهای ضروری برای فیلیمو و گپفیلم (اصلاح شد: user-agent و referer اضافه شدند)
+// هدرهای ضروری برای فیلیمو و گپفیلم (اصلاح شد: cookie و user-agent و referer اضافه شدند)
 $forwardHeaderNames = [
     'authorization',
+    'cookie',
     'user-agent',
     'useragent',
     'jsontype',
@@ -123,9 +124,16 @@ if (!isset($incomingHeaders['User-Agent']) && !isset($incomingHeaders['user-agen
     $requestHeaders[] = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 }
 
-// برای فیلیمو Referer مناسب ست میشود
+// برای فیلیمو Referer و کوکی‌های احراز هویت وب ست می‌شود
 if (strpos($host, 'filimo.com') !== false) {
     $requestHeaders[] = 'Referer: https://www.filimo.com/';
+    $authHeader = $incomingHeaders['Authorization'] ?? $incomingHeaders['authorization'] ?? '';
+    if (preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
+        $jwtToken = trim($matches[1]);
+        if (!isset($incomingHeaders['Cookie']) && !isset($incomingHeaders['cookie'])) {
+            $requestHeaders[] = "Cookie: token={$jwtToken}; asp_auth={$jwtToken};";
+        }
+    }
 } elseif (strpos($host, 'gapfilm.ir') !== false) {
     $requestHeaders[] = 'Origin: https://www.gapfilm.ir';
     $requestHeaders[] = 'Referer: https://www.gapfilm.ir/';

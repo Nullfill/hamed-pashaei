@@ -68,7 +68,10 @@ export class FilimoClient {
       headers["X-Proxy-Secret"] = process.env.GATEWAY_SECRET.trim();
     }
     if (options.simple !== false) headers.jsonType = "simple";
-    if (token && options.auth) headers.authorization = `Bearer ${token}`;
+    if (token && options.auth) {
+      headers.authorization = `Bearer ${token}`;
+      headers.Cookie = `token=${token}; asp_auth=${token};`;
+    }
 
     try {
       const response = proxyUrl
