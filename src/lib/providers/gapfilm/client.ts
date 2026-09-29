@@ -19,18 +19,19 @@ export class GapfilmClient {
 
   async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const url = new URL(path, this.apiBaseUrl);
-    const gatewayUrl = getGatewayUrl();
-    const fetchUrl = gatewayUrl ? buildGatewayUrl(url.toString()) : url.toString();
-    const proxyUrl = gatewayUrl ? undefined : await getProxyUrl();
-    const dispatcher = proxyUrl ? await getProviderProxyDispatcher() : undefined;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
 
     for (const [key, value] of Object.entries(options.params ?? {})) {
       if (value !== undefined && value !== null && value !== "") {
         url.searchParams.set(key, String(value));
       }
     }
+
+    const gatewayUrl = getGatewayUrl();
+    const fetchUrl = gatewayUrl ? buildGatewayUrl(url.toString()) : url.toString();
+    const proxyUrl = gatewayUrl ? undefined : await getProxyUrl();
+    const dispatcher = proxyUrl ? await getProviderProxyDispatcher() : undefined;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
 
     const headers: Record<string, string> = {
       Accept: "*/*",

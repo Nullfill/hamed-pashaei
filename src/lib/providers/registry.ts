@@ -76,17 +76,17 @@ export function getAllProviders(): MediaProvider[] {
 const cachedHomeSections = {
   shabforoosh: unstable_cache(
     () => providers.shabforoosh.getHomeSections(),
-    ["home-sections-shabforoosh-v4"],
+    ["home-sections-shabforoosh-v5"],
     { revalidate: 300 },
   ),
   gapfilm: unstable_cache(
     () => providers.gapfilm.getHomeSections(),
-    ["home-sections-gapfilm-v3"],
+    ["home-sections-gapfilm-v5"],
     { revalidate: 300 },
   ),
   filimo: unstable_cache(
     () => providers.filimo.getHomeSections(),
-    ["home-sections-filimo-v3"],
+    ["home-sections-filimo-v5"],
     { revalidate: 300 },
   ),
   sheyda: unstable_cache(
@@ -103,36 +103,36 @@ const cachedCatalogSections: Record<
   shabforoosh: {
     movie: unstable_cache(
       () => providers.shabforoosh.getCatalogSections?.("movie") ?? providers.shabforoosh.getHomeSections(),
-      ["catalog-sections-shabforoosh-movie-v3"],
+      ["catalog-sections-shabforoosh-movie-v4"],
       { revalidate: 300 },
     ),
     series: unstable_cache(
       () => providers.shabforoosh.getCatalogSections?.("series") ?? providers.shabforoosh.getHomeSections(),
-      ["catalog-sections-shabforoosh-series-v3"],
+      ["catalog-sections-shabforoosh-series-v4"],
       { revalidate: 300 },
     ),
   },
   gapfilm: {
     movie: unstable_cache(
       () => providers.gapfilm.getCatalogSections?.("movie") ?? providers.gapfilm.getHomeSections(),
-      ["catalog-sections-gapfilm-movie-v3"],
+      ["catalog-sections-gapfilm-movie-v5"],
       { revalidate: 300 },
     ),
     series: unstable_cache(
       () => providers.gapfilm.getCatalogSections?.("series") ?? providers.gapfilm.getHomeSections(),
-      ["catalog-sections-gapfilm-series-v3"],
+      ["catalog-sections-gapfilm-series-v5"],
       { revalidate: 300 },
     ),
   },
   filimo: {
     movie: unstable_cache(
       () => providers.filimo.getCatalogSections?.("movie") ?? providers.filimo.getHomeSections(),
-      ["catalog-sections-filimo-movie-v3"],
+      ["catalog-sections-filimo-movie-v5"],
       { revalidate: 300 },
     ),
     series: unstable_cache(
       () => providers.filimo.getCatalogSections?.("series") ?? providers.filimo.getHomeSections(),
-      ["catalog-sections-filimo-series-v3"],
+      ["catalog-sections-filimo-series-v5"],
       { revalidate: 300 },
     ),
   },
