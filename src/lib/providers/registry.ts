@@ -76,17 +76,17 @@ export function getAllProviders(): MediaProvider[] {
 const cachedHomeSections = {
   shabforoosh: unstable_cache(
     () => providers.shabforoosh.getHomeSections(),
-    ["home-sections-shabforoosh-v5"],
+    ["home-sections-shabforoosh-v6"],
     { revalidate: 300 },
   ),
   gapfilm: unstable_cache(
     () => providers.gapfilm.getHomeSections(),
-    ["home-sections-gapfilm-v5"],
+    ["home-sections-gapfilm-v6"],
     { revalidate: 300 },
   ),
   filimo: unstable_cache(
     () => providers.filimo.getHomeSections(),
-    ["home-sections-filimo-v5"],
+    ["home-sections-filimo-v6"],
     { revalidate: 300 },
   ),
   sheyda: unstable_cache(

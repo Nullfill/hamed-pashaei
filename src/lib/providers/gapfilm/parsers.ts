@@ -305,7 +305,7 @@ export function parseHomeSections(
         sourceType: String(section.Type ?? 1),
       } satisfies HomeSection;
     })
-    .filter((section) => section.items.length);
+    .filter((section) => section.type === "slider" ? section.items.length > 0 : section.items.length >= 3);
 }
 
 export function parseBrowse(
