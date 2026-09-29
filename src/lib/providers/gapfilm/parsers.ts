@@ -472,6 +472,10 @@ export function parseEpisodes(
     .sort((a, b) => a.season - b.season || a.episode - b.episode);
 }
 
+function mediaProxyUrl(url: string): string {
+  return `/api/provider-media?url=${encodeURIComponent(url)}`;
+}
+
 export function parsePlaybackFromAttachment(
   attachment: ApiAttachment | undefined,
   poster?: string,
@@ -479,7 +483,7 @@ export function parsePlaybackFromAttachment(
   const sources: PlaybackSource[] = parseAttachmentLinks(attachment).map(
     (link) => ({
       quality: link.quality,
-      src: link.src,
+      src: mediaProxyUrl(link.src),
       type: mimeType({ Path: link.src }),
       subtitleFa: link.subtitleFa,
       subtitleEn: link.subtitleEn,

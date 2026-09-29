@@ -90,6 +90,8 @@ export async function GET(request: Request) {
   try {
     const isSheyda =
       target.hostname === "sheyda.com" || target.hostname.endsWith(".sheyda.com");
+    const isGapfilm = target.hostname === "core.gapfilm.ir" || target.hostname.endsWith(".gapfilm.ir");
+    const isFilimo = target.hostname === "www.filimo.com" || target.hostname.endsWith(".filimo.com");
     const response = await fetch(target, {
       headers: {
         Accept: "application/vnd.apple.mpegurl,*/*",
@@ -97,8 +99,12 @@ export async function GET(request: Request) {
           ? "https://www.aparat.com/"
           : target.hostname.endsWith("sheyda.com")
             ? "https://www.sheyda.com/"
-            : "https://www.filimo.com/",
+            : target.hostname.endsWith("gapfilm.ir")
+              ? "https://www.gapfilm.ir/"
+              : "https://www.filimo.com/",
         ...(isSheyda ? { Origin: "https://www.sheyda.com" } : {}),
+        ...(isGapfilm ? { Origin: "https://www.gapfilm.ir", PlatformType: "Web", SourceEnvironment: "Website", "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
+        ...(isFilimo ? { "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       },
       cache: "no-store",
