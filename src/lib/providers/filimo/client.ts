@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getProxyUrl } from "@/lib/http/providerProxy";
+import { buildGatewayUrl, getGatewayUrl, getProxyUrl } from "@/lib/http/providerProxy";
 import { ProviderConfigError, ProviderFetchError } from "@/lib/utils/errors";
 import {
   getFilimoRequestTransport,
@@ -41,8 +41,13 @@ export class FilimoClient {
     );
     const configuredProxyUrl = await getProxyUrl();
     const transport = getFilimoRequestTransport(options, configuredProxyUrl);
-    const proxyUrl =
-      transport === "https-proxy-agent" ? configuredProxyUrl : undefined;
+    const gatewayUrl = getGatewayUrl();
+    const fetchUrl = gatewayUrl ? buildGatewayUrl(url.toString()) : url;
+    const proxyUrl = gatewayUrl
+      ? undefined
+      : transport === "https-proxy-agent"
+        ? configuredProxyUrl
+        : undefined;
     const headers: Record<string, string> = {
       Accept: "application/json",
       "Accept-Language": "en-US,en;q=0.9",
@@ -54,6 +59,9 @@ export class FilimoClient {
       useragent: JSON.stringify({ os: "react", pf: "site" }),
     };
 
+    if (gatewayUrl && process.env.GATEWAY_SECRET) {
+      headers["X-Proxy-Secret"] = process.env.GATEWAY_SECRET.trim();
+    }
     if (options.simple !== false) headers.jsonType = "simple";
     if (token && options.auth) headers.authorization = `Bearer ${token}`;
 
@@ -66,7 +74,7 @@ export class FilimoClient {
             controller.signal,
           )
         : await (async () => {
-            const directResponse = await fetch(url, {
+            const directResponse = await fetch(fetchUrl, {
               headers,
               cache: "no-store",
               signal: controller.signal,

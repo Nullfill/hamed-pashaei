@@ -74,3 +74,23 @@ export async function getProviderProxyDispatcher(): Promise<Dispatcher | undefin
   }
   return proxyDispatcher;
 }
+
+export function getGatewayUrl(): string | undefined {
+  return process.env.GATEWAY_URL?.trim() || undefined;
+}
+
+export function getGatewaySecret(): string | undefined {
+  return process.env.GATEWAY_SECRET?.trim() || undefined;
+}
+
+export function buildGatewayUrl(targetUrl: string | URL): string {
+  const gateway = getGatewayUrl();
+  const rawUrl = typeof targetUrl === "string" ? targetUrl : targetUrl.toString();
+  if (!gateway) return rawUrl;
+  const secret = getGatewaySecret();
+  const urlObj = new URL(gateway);
+  if (secret) urlObj.searchParams.set("secret", secret);
+  urlObj.searchParams.set("url", rawUrl);
+  return urlObj.toString();
+}
+
