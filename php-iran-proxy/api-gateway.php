@@ -1,17 +1,17 @@
 <?php
 /**
  * =========================================================================
- * Filimchi Iranian Host API Gateway / Proxy (گیت‌وی پروایدرهای فیلمچی)
+ * Filimchi Iranian Host API Gateway / Proxy (گیتوی پروایدرهای فیلمچی)
  * =========================================================================
  * 
- * این اسکریپت سبک PHP روی هاست اشتراکی دایرکت‌ادمین ایران شما آپلود می‌شود.
- * هدف: به دلیل داشتن آی‌پی ایران، وب‌سرویس‌های فیلیمو و گپ‌فیلم کاتالوگ کامل
- * و اصلی ایران را برمی‌گردانند و محدودیت‌های VPN و خارج از کشور را دور می‌زند.
+ * این اسکریپت سبک PHP روی هاست اشتراکی دایرکتادمین ایران شما آپلود میشود.
+ * هدف: به دلیل داشتن آیپی ایران، وبسرویسهای فیلیمو و گپفیلم کاتالوگ کامل
+ * و اصلی ایران را برمیگردانند و محدودیتهای VPN و خارج از کشور را دور میزند.
  * 
  * مصرف ترافیک و پردازنده:
- * فقط دیتای متنی و JSON (چند کیلوبایت) از این هاست رد می‌شود و استریم‌های
- * سنگین ویدیو (mp4 / ts) مستقیماً از CDN پخش می‌شوند. بنابراین هیچ فشاری
- * به هاست دایرکت‌ادمین شما نخواهد آمد.
+ * فقط دیتای متنی و JSON (چند کیلوبایت) از این هاست رد میشود و استریمهای
+ * سنگین ویدیو (mp4 / ts) مستقیماً از CDN پخش میشوند. بنابراین هیچ فشاری
+ * به هاست دایرکتادمین شما نخواهد آمد.
  */
 
 // ۱. تنظیم هدرهای CORS برای ارتباط مستقیم اپلیکیشن موبایل و وب
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ۲. کلید امنیتی (برای جلوگیری از سوءاستفاده افراد متفرقه از هاست شما)
-// می‌توانید این مقدار را با یک رشته دلخواه عوض کنید
+// میتوانید این مقدار را با یک رشته دلخواه عوض کنید
 define('GATEWAY_SECRET', 'filimchi-secret-2026');
 
 $clientSecret = $_SERVER['HTTP_X_PROXY_SECRET'] ?? $_GET['secret'] ?? '';
@@ -52,7 +52,7 @@ if (empty($targetUrl)) {
     exit(0);
 }
 
-// ۴. لیست سفید دامنه‌ها (امنیت و جلوگیری از SSRF)
+// ۴. لیست سفید دامنهها (امنیت و جلوگیری از SSRF)
 $parsedTarget = parse_url($targetUrl);
 $host = strtolower($parsedTarget['host'] ?? '');
 
@@ -84,14 +84,14 @@ if (!$isAllowed) {
     exit(0);
 }
 
-// ۵. آماده‌سازی هدرها و درخواست cURL
+// ۵. آمادهسازی هدرها و درخواست cURL
 $method = $_SERVER['REQUEST_METHOD'];
 $body = file_get_contents('php://input');
 
 $requestHeaders = [];
 $incomingHeaders = getallheaders();
 
-// هدرهای ضروری برای فیلیمو و گپ‌فیلم
+// هدرهای ضروری برای فیلیمو و گپفیلم (اصلاح شد: user-agent و referer اضافه شدند)
 $forwardHeaderNames = [
     'authorization',
     'user-agent',
@@ -115,7 +115,7 @@ foreach ($incomingHeaders as $name => $value) {
     }
 }
 
-// تنظیم پیش‌فرض هدرها در صورت نبود
+// تنظیم پیشفرض هدرها در صورت نبود
 if (!isset($incomingHeaders['Accept']) && !isset($incomingHeaders['accept'])) {
     $requestHeaders[] = 'Accept: application/json';
 }
@@ -123,7 +123,7 @@ if (!isset($incomingHeaders['User-Agent']) && !isset($incomingHeaders['user-agen
     $requestHeaders[] = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 }
 
-// برای فیلیمو Referer مناسب ست می‌شود
+// برای فیلیمو Referer مناسب ست میشود
 if (strpos($host, 'filimo.com') !== false) {
     $requestHeaders[] = 'Referer: https://www.filimo.com/';
 } elseif (strpos($host, 'gapfilm.ir') !== false) {
@@ -131,7 +131,7 @@ if (strpos($host, 'filimo.com') !== false) {
     $requestHeaders[] = 'Referer: https://www.gapfilm.ir/';
 }
 
-// ۶. اجرای درخواست توسط cURL از طریق آی‌پی سرور ایران
+// ۶. اجرای درخواست توسط cURL از طریق آیپی سرور ایران
 $ch = curl_init();
 curl_setopt_array($ch, [
     CURLOPT_URL => $targetUrl,
