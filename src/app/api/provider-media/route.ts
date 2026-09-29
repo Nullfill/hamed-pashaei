@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { buildGatewayUrl, getGatewaySecret } from "@/lib/http/providerProxy";
 
 export const dynamic = "force-dynamic";
 
@@ -92,27 +93,40 @@ export async function GET(request: Request) {
       target.hostname === "sheyda.com" || target.hostname.endsWith(".sheyda.com");
     const isGapfilm = target.hostname === "core.gapfilm.ir" || target.hostname.endsWith(".gapfilm.ir");
     const isFilimo = target.hostname === "www.filimo.com" || target.hostname.endsWith(".filimo.com");
-    const response = await fetch(target, {
-      headers: {
-        Accept: "application/vnd.apple.mpegurl,*/*",
-        Referer: target.hostname.endsWith("aparat.com")
-          ? "https://www.aparat.com/"
-          : target.hostname.endsWith("sheyda.com")
-            ? "https://www.sheyda.com/"
-            : target.hostname.endsWith("gapfilm.ir")
-              ? "https://www.gapfilm.ir/"
-              : "https://www.filimo.com/",
-        ...(isSheyda ? { Origin: "https://www.sheyda.com" } : {}),
-        ...(isGapfilm ? { Origin: "https://www.gapfilm.ir", PlatformType: "Web", SourceEnvironment: "Website", "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
-        ...(isFilimo ? { "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-      },
+    
+    // Send request through Iranian PHP proxy if available (bypasses Vercel firewall block)
+    const proxyTargetUrl = buildGatewayUrl(target.toString());
+    
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.apple.mpegurl,*/*",
+      Referer: target.hostname.endsWith("aparat.com")
+        ? "https://www.aparat.com/"
+        : target.hostname.endsWith("sheyda.com")
+          ? "https://www.sheyda.com/"
+          : target.hostname.endsWith("gapfilm.ir")
+            ? "https://www.gapfilm.ir/"
+            : "https://www.filimo.com/",
+      ...(isSheyda ? { Origin: "https://www.sheyda.com" } : {}),
+      ...(isGapfilm ? { Origin: "https://www.gapfilm.ir", PlatformType: "Web", SourceEnvironment: "Website", "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
+      ...(isFilimo ? { "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    };
+
+    const secret = getGatewaySecret();
+    if (secret && proxyTargetUrl !== target.toString()) {
+      headers["X-Proxy-Secret"] = secret;
+    }
+
+    const response = await fetch(proxyTargetUrl, {
+      headers,
       cache: "no-store",
       signal: controller.signal,
     });
 
     if (!response.ok || !response.body) {
-      return NextResponse.json({ error: "Media upstream failed." }, { status: 502 });
+      console.error("Upstream error status:", response.status);
+      console.error("Upstream error body:", await response.text().catch(() => ""));
+      return NextResponse.json({ error: "Media upstream failed.", status: response.status }, { status: 502 });
     }
 
     const finalUrl = new URL(response.url || target.toString());
