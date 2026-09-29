@@ -27,9 +27,7 @@ export class ShabforooshClient {
       ...(cookie ? { Cookie: cookie } : {}),
     };
 
-    if (gatewayUrl && process.env.GATEWAY_SECRET) {
-      headers["X-Proxy-Secret"] = process.env.GATEWAY_SECRET.trim();
-    }
+
 
     return fetchHtml({
       url: fetchUrl,
