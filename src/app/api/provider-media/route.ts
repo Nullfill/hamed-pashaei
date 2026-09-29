@@ -130,8 +130,10 @@ export async function GET(request: Request) {
     }
 
     const finalUrl = new URL(response.url || target.toString());
-    if (!isAllowed(finalUrl)) {
-      return NextResponse.json({ error: "Media redirect is not allowed." }, { status: 502 });
+    const gateway = getGatewayUrl();
+    const isGatewayUrl = gateway && finalUrl.toString().startsWith(gateway);
+    if (!isAllowed(finalUrl) && !isGatewayUrl) {
+      return NextResponse.json({ error: "Media redirect is not allowed.", url: finalUrl.toString() }, { status: 502 });
     }
 
     const contentType = response.headers.get("content-type") || "";
