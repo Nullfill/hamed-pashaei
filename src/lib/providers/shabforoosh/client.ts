@@ -1,5 +1,5 @@
 import { fetchHtml } from "@/lib/http/fetchHtml";
-import { buildGatewayUrl, getGatewayUrl } from "@/lib/http/providerProxy";
+
 
 const DEFAULT_BASE_URL = "https://shabforoosh.ir";
 
@@ -15,8 +15,7 @@ export class ShabforooshClient {
 
     const target = new URL(pathOrUrl, this.baseUrl);
     const isJsonApi = target.pathname.startsWith("/wp-json/");
-    const gatewayUrl = getGatewayUrl();
-    const fetchUrl = gatewayUrl ? buildGatewayUrl(target.toString()) : target.toString();
+    const fetchUrl = target.toString();
 
     const headers: Record<string, string> = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0",

@@ -94,10 +94,12 @@ $incomingHeaders = getallheaders();
 // هدرهای ضروری برای فیلیمو و گپ‌فیلم
 $forwardHeaderNames = [
     'authorization',
+    'user-agent',
     'useragent',
     'jsontype',
     'content-type',
     'accept',
+    'referer',
     'x-source-p',
     'platformtype',
     'sourceenvironment',
