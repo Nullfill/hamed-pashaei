@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     const isSheyda =
       target.hostname === "sheyda.com" || target.hostname.endsWith(".sheyda.com");
     const isGapfilm = target.hostname === "core.gapfilm.ir" || target.hostname.endsWith(".gapfilm.ir");
-    const isFilimo = target.hostname === "www.filimo.com" || target.hostname.endsWith(".filimo.com");
+    const isFilimo = target.hostname === "www.filimo.com" || target.hostname.endsWith(".filimo.com") || target.hostname.includes("aparat.com") || target.hostname.includes("aparat.cloud");
     
     // Send request through Iranian PHP proxy if available (bypasses Vercel firewall block)
     const proxyTargetUrl = buildGatewayUrl(target.toString());

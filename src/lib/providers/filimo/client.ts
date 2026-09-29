@@ -43,7 +43,7 @@ export class FilimoClient {
     );
     const configuredProxyUrl = await getProxyUrl();
     const transport = getFilimoRequestTransport(options, configuredProxyUrl);
-    const gatewayUrl = getGatewayUrl();
+    const gatewayUrl = undefined;
     const fetchUrl = gatewayUrl ? buildGatewayUrl(url.toString()) : url;
     const proxyUrl = gatewayUrl
       ? undefined
