@@ -43,7 +43,7 @@ export class FilimoClient {
     );
     const configuredProxyUrl = await getProxyUrl();
     const transport = getFilimoRequestTransport(options, configuredProxyUrl);
-    const gatewayUrl = undefined;
+    const gatewayUrl = getGatewayUrl();
     const fetchUrl = gatewayUrl ? buildGatewayUrl(url.toString()) : url;
     const proxyUrl = gatewayUrl
       ? undefined
@@ -59,9 +59,9 @@ export class FilimoClient {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0",
       trackerabtest: JSON.stringify({ leadToApp: "origin" }),
       useragent: JSON.stringify({ os: "react", pf: "site" }),
-      "X-Forwarded-For": "5.52.12.34",
-      "X-Real-IP": "5.52.12.34",
-      "Client-IP": "5.52.12.34",
+      "X-Forwarded-For": "5.62.251.84",
+      "X-Real-IP": "5.62.251.84",
+      "Client-IP": "5.62.251.84",
     };
 
     if (gatewayUrl && process.env.GATEWAY_SECRET) {

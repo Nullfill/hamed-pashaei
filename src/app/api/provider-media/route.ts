@@ -108,7 +108,7 @@ export async function GET(request: Request) {
             : "https://www.filimo.com/",
       ...(isSheyda ? { Origin: "https://www.sheyda.com" } : {}),
       ...(isGapfilm ? { Origin: "https://www.gapfilm.ir", PlatformType: "Web", SourceEnvironment: "Website", "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
-      ...(isFilimo ? { "X-Forwarded-For": "5.52.12.34", "X-Real-IP": "5.52.12.34", "Client-IP": "5.52.12.34" } : {}),
+      ...(isFilimo ? { "X-Forwarded-For": "5.62.251.84", "X-Real-IP": "5.62.251.84", "Client-IP": "5.62.251.84" } : {}),
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     };
 
