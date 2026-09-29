@@ -181,6 +181,7 @@ export function VideoPlayer({
   const [selected, setSelected] = useState<PlaybackSource | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [useDirectIframe, setUseDirectIframe] = useState(false);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string>();
   const [playing, setPlaying] = useState(false);
@@ -722,10 +723,39 @@ export function VideoPlayer({
     );
   }
 
+  if (useDirectIframe) {
+    const targetUid = playbackId || id;
+    return (
+      <div className={shellClass}>
+        <iframe
+          src={`https://www.filimo.com/w/${encodeURIComponent(targetUid)}`}
+          className="h-full w-full border-0 aspect-video rounded-2xl"
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
   if (error) {
+    const isFilimo = provider === "filimo" || provider === "c";
     return (
       <div className={`${placeholderClass} px-6 text-center`}>
         <p className="text-slate-300">{error}</p>
+        {isFilimo ? (
+          <div className="mt-4 flex flex-col items-center gap-3">
+            <p className="text-xs text-amber-400">
+              اگر از اینترنت رایتل استفاده می‌کنید یا در فیلیمو لاگین هستید، می‌توانید مستقیماً از پلیر فیلیمو تماشا کنید:
+            </p>
+            <button
+              type="button"
+              onClick={() => setUseDirectIframe(true)}
+              className="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+            >
+              تماشا با اینترنت رایتل (پلیر مستقیم)
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }
