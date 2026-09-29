@@ -45,6 +45,9 @@ export class GapfilmClient {
       Referer: `${this.siteBaseUrl}/`,
       "Sec-GPC": "1",
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0",
+      "X-Forwarded-For": "5.52.12.34",
+      "X-Real-IP": "5.52.12.34",
+      "Client-IP": "5.52.12.34",
       ...(options.headers as Record<string, string>),
     };
 

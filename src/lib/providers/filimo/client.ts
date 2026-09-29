@@ -59,6 +59,9 @@ export class FilimoClient {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0",
       trackerabtest: JSON.stringify({ leadToApp: "origin" }),
       useragent: JSON.stringify({ os: "react", pf: "site" }),
+      "X-Forwarded-For": "5.52.12.34",
+      "X-Real-IP": "5.52.12.34",
+      "Client-IP": "5.52.12.34",
     };
 
     if (gatewayUrl && process.env.GATEWAY_SECRET) {

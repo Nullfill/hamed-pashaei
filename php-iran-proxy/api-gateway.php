@@ -100,7 +100,10 @@ $forwardHeaderNames = [
     'accept',
     'x-source-p',
     'platformtype',
-    'sourceenvironment'
+    'sourceenvironment',
+    'x-forwarded-for',
+    'x-real-ip',
+    'client-ip'
 ];
 
 foreach ($incomingHeaders as $name => $value) {
