@@ -139,6 +139,28 @@ Update the internal Engine 4 (`SourceEngineD`) to use the exact reverse-engineer
 
 ---
 
+## 🌐 REVISION 5: Live Iranian API Gateway (Bypass VPN Geo-Restrictions)
+We have successfully deployed an active, verified PHP API Gateway on an Iranian DirectAdmin server.
+When the user's mobile device is connected via VPN or a non-Iran IP, route API requests through this gateway to ensure providers return the domestic Iranian catalog (`country: "IR"`, `abroad: false`, `IsDomesticTraffic: true`):
+
+- **Active Gateway URL:** `https://www.dwn.qanadbook.com/filmchi/api-gateway.php`
+- **Secret Key:** `filimchi-secret-2026`
+- **Usage Example (Dio / Axios):**
+  ```dart
+  // To request any provider endpoint through the Iran Gateway:
+  final targetUrl = "https://www.filimo.com/api/fa/v1/movie/movie/list/tagid/1";
+  final gatewayUrl = "https://www.dwn.qanadbook.com/filmchi/api-gateway.php?secret=filimchi-secret-2026&url=${Uri.encodeComponent(targetUrl)}";
+  
+  // Headers to forward:
+  final headers = {
+    'useragent': '{"os":"react","pf":"site"}',
+    'jsonType': 'simple',
+  };
+  ```
+- *Note:* Video playback (.mp4 / .m3u8 .ts chunks) must still stream directly to the player without passing through the gateway to preserve host bandwidth.
+
+---
+
 ## 🛠️ Step-by-Step Code Output Plan
 Please provide the updated and refactored code files:
 1. **`lib/features/home/presentation/home_screen.dart`** (or React Native equivalent) - All 10+ dynamic rails + Hero slider.
