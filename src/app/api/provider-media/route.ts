@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     const isFilimo = target.hostname === "www.filimo.com" || target.hostname.endsWith(".filimo.com") || target.hostname.includes("aparat.com") || target.hostname.includes("aparat.cloud");
     
     // Send request through Iranian PHP proxy if available (bypasses Vercel firewall block)
-    const proxyTargetUrl = buildGatewayUrl(target.toString());
+    const gatewayUrl = getGatewayUrl(); const useGateway = gatewayUrl && (isGapfilm || target.hostname === "www.filimo.com"); const proxyTargetUrl = useGateway ? buildGatewayUrl(target.toString()) : target.toString();
     
     const headers: Record<string, string> = {
       Accept: "application/vnd.apple.mpegurl,*/*",
