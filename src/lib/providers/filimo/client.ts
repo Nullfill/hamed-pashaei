@@ -22,8 +22,10 @@ export class FilimoClient {
   readonly apiBaseUrl = `${this.siteBaseUrl.replace(/\/$/, "")}/api/fa/v1/`;
 
   async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const { getProviderToken } = await import("@/lib/providers/tokens");
     const url = new URL(path.replace(/^\//, ""), this.apiBaseUrl);
-    const token = normalizeFilimoAuthToken(process.env.FILIMO_AUTH_TOKEN);
+    const rawToken = await getProviderToken("filimo");
+    const token = normalizeFilimoAuthToken(rawToken);
     if (options.auth && !token) {
       throw new ProviderConfigError("توکن پخش فیلیمو تنظیم نشده است.");
     }

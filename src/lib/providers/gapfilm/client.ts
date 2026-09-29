@@ -18,6 +18,7 @@ export class GapfilmClient {
   readonly siteBaseUrl = "https://www.gapfilm.ir";
 
   async requestJson<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const { getProviderToken } = await import("@/lib/providers/tokens");
     const url = new URL(path, this.apiBaseUrl);
 
     for (const [key, value] of Object.entries(options.params ?? {})) {
@@ -33,6 +34,8 @@ export class GapfilmClient {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
 
+    const token = await getProviderToken("gapfilm");
+
     const headers: Record<string, string> = {
       Accept: "*/*",
       "Accept-Language": "en-US,en;q=0.9",
@@ -44,6 +47,10 @@ export class GapfilmClient {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0",
       ...(options.headers as Record<string, string>),
     };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
 
     if (gatewayUrl && process.env.GATEWAY_SECRET) {
       headers["X-Proxy-Secret"] = process.env.GATEWAY_SECRET.trim();
